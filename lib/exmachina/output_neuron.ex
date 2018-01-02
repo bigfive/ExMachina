@@ -23,8 +23,6 @@ defmodule Exmachina.OutputNeuron do
     GenServer.start_link(__MODULE__, %Data{num_inputs: num_inputs, bias: init_weight()})
   end
 
-  def init_weight, do: :rand.uniform() / 2 + 0.5
-
   def activate(pid, activity), do: GenServer.call(pid, {:activate, activity})
   def set_target(pid, target), do: GenServer.cast(pid, {:set_target, target})
   def get_last_activity(pid), do: GenServer.call(pid, :get)
@@ -53,6 +51,8 @@ defmodule Exmachina.OutputNeuron do
     {:noreply, %{state | input_activities: %{}, last_activity: activity}}
   end
 
+  defp init_weight, do: :rand.uniform() - 0.5
+
   defp record_input_activity(activity, from, %Data{input_activities: input_activities} = state) do
     %{state | input_activities: Map.put(input_activities, from, activity)}
   end
@@ -62,8 +62,9 @@ defmodule Exmachina.OutputNeuron do
   defp fire_if_all_received(_state), do: GenServer.cast(self(), :fire)
 
   defp compute_activity(%Data{input_activities: input_activities, bias: bias}) do
-    summed_inputs = (Map.values(input_activities) ++ [bias]) |> Enum.sum
-    1 / (1 + :math.pow(@e, -summed_inputs))
+    sum_activity = (Map.values(input_activities) ++ [bias]) |> Enum.sum
+    # (1 / (1 + :math.pow(@e, -sum_activity)))
+    Numerix.Special.logistic(sum_activity)
   end
 
   defp calculate_error_from_inputs(activity, target) do

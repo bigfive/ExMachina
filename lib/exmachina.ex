@@ -1,52 +1,126 @@
 defmodule Exmachina do
+  @num_output_units 10   # 1 unit for each label: "0" through "9"
+  @num_hidden_units 6    # coz.. I like the number
+  @num_input_units  256  # 1 unit for each pixel of the training cases
+
   def test do
-    {:ok, o1} = Exmachina.OutputNeuron.start_link(num_inputs: 4)
-    {:ok, o2} = Exmachina.OutputNeuron.start_link(num_inputs: 4)
-    {:ok, o3} = Exmachina.OutputNeuron.start_link(num_inputs: 4)
+    # output units
+    output_neurons = Enum.map(1..@num_output_units, fn (_index) ->
+      {:ok, pid} = Exmachina.OutputNeuron.start_link(num_inputs: @num_hidden_units)
+      pid
+    end)
 
-    {:ok, h1} = Exmachina.Neuron.start_link(num_inputs: 8, output_pids: [o1, o2, o3])
-    {:ok, h2} = Exmachina.Neuron.start_link(num_inputs: 8, output_pids: [o1, o2, o3])
-    {:ok, h3} = Exmachina.Neuron.start_link(num_inputs: 8, output_pids: [o1, o2, o3])
-    {:ok, h4} = Exmachina.Neuron.start_link(num_inputs: 8, output_pids: [o1, o2, o3])
+    # hidden units
+    hidden_neurons = Enum.map(1..@num_hidden_units, fn (_index) ->
+      {:ok, pid} = Exmachina.Neuron.start_link(num_inputs: @num_input_units, output_pids: output_neurons)
+      pid
+    end)
 
-    {:ok, i1} = Exmachina.Neuron.start_link(num_inputs: 1, output_pids: [h1, h2, h3, h4])
-    {:ok, i2} = Exmachina.Neuron.start_link(num_inputs: 1, output_pids: [h1, h2, h3, h4])
-    {:ok, i3} = Exmachina.Neuron.start_link(num_inputs: 1, output_pids: [h1, h2, h3, h4])
-    {:ok, i4} = Exmachina.Neuron.start_link(num_inputs: 1, output_pids: [h1, h2, h3, h4])
-    {:ok, i5} = Exmachina.Neuron.start_link(num_inputs: 1, output_pids: [h1, h2, h3, h4])
-    {:ok, i6} = Exmachina.Neuron.start_link(num_inputs: 1, output_pids: [h1, h2, h3, h4])
-    {:ok, i7} = Exmachina.Neuron.start_link(num_inputs: 1, output_pids: [h1, h2, h3, h4])
-    {:ok, i8} = Exmachina.Neuron.start_link(num_inputs: 1, output_pids: [h1, h2, h3, h4])
+    # input units
+    input_neurons = Enum.map(1..@num_input_units, fn (_index) ->
+      {:ok, pid} = Exmachina.Neuron.start_link(num_inputs: 1, output_pids: hidden_neurons)
+      pid
+    end)
 
-    # training example 1
+    # load the examples
+    examples = get_examples()
 
-    Exmachina.OutputNeuron.set_target(o1, 1)
-    Exmachina.OutputNeuron.set_target(o2, 0)
-    Exmachina.OutputNeuron.set_target(o3, 0)
+    # run through the training examples 1000 times each
+    for run_through_index <- 1..1000 do
+      examples
+      |> Enum.reduce([], fn ({%{pixels: pixel_intensities, labels: label_values}, example_index}, answers) ->
 
-    example = %{
-      i1 => (1 - :rand.uniform() * 2),
-      i2 => (1 - :rand.uniform() * 2),
-      i3 => (1 - :rand.uniform() * 2),
-      i4 => (1 - :rand.uniform() * 2),
-      i5 => (1 - :rand.uniform() * 2),
-      i6 => (1 - :rand.uniform() * 2),
-      i7 => (1 - :rand.uniform() * 2),
-      i8 => (1 - :rand.uniform() * 2),
-    }
+        # set labels
+        Enum.zip(output_neurons, label_values)
+        |> Enum.each(fn ({output_neuron, label_value}) ->
+          Exmachina.OutputNeuron.set_target(output_neuron, label_value)
+        end)
 
-    for index <- 1..1000 do
-      example
-      |> Task.async_stream(fn {node, value} -> Exmachina.Neuron.activate(node, value) end)
-      |> Stream.run()
+        # send input activity
+        Enum.zip(input_neurons, pixel_intensities)
+        |> Task.async_stream(fn {neuron, intensity} -> Exmachina.Neuron.activate(neuron, intensity) end, max_concurrency: 999)
+        |> Stream.run()
 
-      ov1 = Exmachina.OutputNeuron.get_last_activity(o1)
-      ov2 = Exmachina.OutputNeuron.get_last_activity(o2)
-      ov3 = Exmachina.OutputNeuron.get_last_activity(o3)
+        # print the input weights of the first hidden neuron
+        if rem(example_index, 100) == 0 do
+          input_neurons
+          |> Enum.map(& Exmachina.Neuron.get_weight_for(&1, List.last(hidden_neurons)))
+          |> print_square_image
+        end
 
-      if rem(index, 100) == 0, do: IO.inspect [ov1, ov2, ov3]
+        # Get result
+        output_values = Enum.map(output_neurons, &Exmachina.OutputNeuron.get_last_activity/1)
+
+        input_number  = max_index(label_values)
+        output_number = max_index(output_values)
+
+        # Add answer to accumulator
+        answers = output_number
+          |> case do
+            ^input_number -> [1 | answers]
+            _other_number -> [0 | answers]
+          end
+          |> Enum.take(200)
+
+        # sometimes print a status update
+        if rem(example_index, 10) == 0 do
+          fraction_correct = Enum.sum(answers) / length(answers)
+          print_over "r:#{run_through_index} e:#{example_index} (#{Float.round(fraction_correct * 100.0, 3)}% recently correct)"
+        end
+
+        answers
+      end)
     end
 
+    IO.puts ""
     :ok
   end
+
+  defp get_examples() do
+    "lib/examples/semeion.data"
+    |> File.stream!()
+    |> Enum.map(fn line ->
+      row = line |> String.trim("\n") |> String.split(" ")
+      pixels = Enum.take(row, 256) |> Enum.map(&String.to_float/1)
+      labels = Enum.take(row, -10) |> Enum.map(&String.to_integer/1)
+
+      %{pixels: pixels, labels: labels}
+    end)
+    |> Enum.shuffle
+    |> Enum.with_index
+  end
+
+  defp max_index(outputs) do
+    outputs
+    |> Enum.with_index
+    |> Enum.map(fn {output, index} -> {index, output} end)
+    |> Enum.max_by(& elem(&1, 1))
+    |> elem(0)
+  end
+
+  defp print_over(string) do
+    IO.write "                                 \r#{string}"
+  end
+
+  defp print_square_image(pixels) do
+    num_pixels = length(pixels)
+    width = round(:math.sqrt(num_pixels))
+
+    IO.puts ""
+    pixels
+    |> Enum.chunk_every(width)
+    |> Enum.each(fn line ->
+      line
+      |> Enum.map(& :erlang.float_to_binary(&1, decimals: 2))
+      |> Enum.map(& String.pad_leading(&1, 4, " "))
+      |> Enum.join(" | ")
+      |> IO.puts
+    end)
+  end
+
+  defp shade(float) when float <= 0.2, do: " "
+  defp shade(float) when float <= 0.4, do: "░"
+  defp shade(float) when float <= 0.6, do: "▒"
+  defp shade(float) when float <= 0.8, do: "▓"
+  defp shade(float) when float >  0.8, do: "▮"
 end

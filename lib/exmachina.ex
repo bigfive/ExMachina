@@ -4,7 +4,7 @@ defmodule Exmachina do
   alias Exmachina.Prediction
 
   @num_output_units 10   # 1 unit for each label: "0" through "9"
-  @num_hidden_units 14   # coz.. I like the number
+  @num_hidden_units 8    # coz.. I like the number
   @num_input_units  256  # 1 unit for each pixel of the training cases
 
   @num_times_through_examples 20

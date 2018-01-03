@@ -53,6 +53,9 @@
       var layerWeights = layerWeightSet[layerIndex];
       var weightsElem = document.getElementById(layerId);
 
+      var allPixels = [].concat(...layerWeights);
+      var maxPixel = Math.max(Math.max(...allPixels), Math.abs(Math.min(...allPixels)))
+
       for (weightIndex in layerWeights) {
         var neuron = layerWeights[weightIndex]
         var neuronElem = document.createElement("div");
@@ -63,7 +66,7 @@
         for (pixelIndex in neuron) {
           var weight = neuron[pixelIndex]
           var pixelElem = document.createElement("span");
-          var color = 255 - Math.floor(weight * 255);
+          var color = 255 - Math.floor((weight / maxPixel + 0.5) * 255);
           pixelElem.style.background = "rgb("+color+","+color+","+color+")";
           pixelElem.className = "pixel";
 
@@ -107,9 +110,9 @@
       predictionsElem.appendChild(predictionElem);
     }
 
-    // setTimeout(function(){
-    //    window.location.reload(1);
-    // }, 600);
+    setTimeout(function(){
+       window.location.reload(1);
+    }, 2000);
   </script>
 </body>
 <html>

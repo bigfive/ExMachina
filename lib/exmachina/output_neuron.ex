@@ -1,6 +1,5 @@
 defmodule Exmachina.OutputNeuron do
   alias Exmachina.Neuron.Dendrites
-  alias Exmachina.Neuron.Axon
 
   use GenServer
 

@@ -38,9 +38,9 @@ defmodule Exmachina.OutputNeuron do
 
   def handle_cast(:fire, %__MODULE__{soma: soma, target: target} = state) do
     with(
-      soma        <- Soma.compute_activity(soma),
-      error       <- calculate_error(soma.activity, target),
-      soma        <- Soma.reply_with_error(soma, error)
+      soma  <- Soma.compute_activity(soma),
+      error <- mimic_error_response(soma.activity, target),
+      soma  <- Soma.reply_with_error(soma, error)
     ) do
       {:noreply, %{state | soma: soma}}
     end
@@ -52,7 +52,7 @@ defmodule Exmachina.OutputNeuron do
     if map_size(input_activities) == num_inputs, do: GenServer.cast(self(), :fire)
   end
 
-  defp calculate_error(activity, target) do
+  defp mimic_error_response(activity, target) do
     weight = 1
     error = -(target - activity)
     %{self() => {error, weight}}

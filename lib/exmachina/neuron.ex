@@ -1,17 +1,3 @@
-### RUN SHEET OF A NEURON
-#
-# 1) Wait for all inputs to send activities (remember these connections)
-# 2) Compute activity
-# 3) Compute weighted activities
-# 4) Send to weighted activities to outputs
-# 5) Wait for all output responses. (IE the dE/dz of each connected output neuron)
-# 6) Compute dE/dz (via dE/dy)
-# 7) Send dE/dz back to open connections from step 1
-# 8) Compute dE/dw
-# 9) Update weights
-
-# https://www.youtube.com/watch?v=Z8jzCvb62e8&list=PLoRl3Ht4JOcdU872GhiYWf6jwrk_SNhz9&index=13
-
 defmodule Exmachina.Neuron do
   alias Exmachina.Neuron.Soma
   alias Exmachina.Neuron.Dendrites
@@ -51,7 +37,7 @@ defmodule Exmachina.Neuron do
     {:reply, weight, state}
   end
 
-  def handle_cast(:fire, %__MODULE__{dendrites: dendrites, soma: soma} = state) do
+  def handle_cast(:fire, %__MODULE__{soma: soma, dendrites: dendrites} = state) do
     with(
       soma        <- Soma.compute_activity(soma),
       dendrites   <- Dendrites.output_activity(dendrites, soma.activity),

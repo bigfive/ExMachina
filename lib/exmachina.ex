@@ -12,25 +12,8 @@ defmodule Exmachina do
   @print_status_every 10
 
   def learn do
-    # output units
-    output_neurons = Enum.map(1..@num_output_units, fn (_index) ->
-      {:ok, pid} = Exmachina.OutputNeuron.start_link(num_inputs: @num_hidden_units)
-      pid
-    end)
-
-    # hidden units
-    hidden_neurons = Enum.map(1..@num_hidden_units, fn (_index) ->
-      {:ok, pid} = Exmachina.Neuron.start_link(num_inputs: @num_input_units, output_pids: output_neurons)
-      pid
-    end)
-
-    # input units
-    input_neurons = Enum.map(1..@num_input_units, fn (_index) ->
-      {:ok, pid} = Exmachina.Neuron.start_link(num_inputs: 1, output_pids: hidden_neurons)
-      pid
-    end)
-
-    network = %Network{output_neurons: output_neurons, hidden_neurons: hidden_neurons, input_neurons: input_neurons}
+    # create the network
+    network = Network.create_3_layer(@num_input_units, @num_hidden_units, @num_output_units)
 
     # load the examples
     examples = Example.load_examples()
@@ -39,7 +22,7 @@ defmodule Exmachina do
     for run_through_index <- 1..@num_times_through_examples do
       examples
       |> Enum.reduce([], fn ({example, example_index}, predictions) ->
-        prediction = Network.get_prediction_from_example(network, example)
+        prediction = Network.get_prediction_for_example(network, example)
         predictions = [prediction | predictions] |> Enum.take(200)
 
         # sometimes dump the weights to a file
@@ -55,22 +38,13 @@ defmodule Exmachina do
   end
 
   defp save_weights_to_file(network) do
-    layer_1_json = network.hidden_neurons
-      |> Enum.map(fn (hidden_neuron) ->
-        Enum.map(network.input_neurons, fn (input_neuron) ->
-          Exmachina.Neuron.get_weight_for(input_neuron, hidden_neuron)
-        end)
-      end)
+    layer_1_json = network
+      |> Network.get_input_weights()
       |> Poison.encode!()
 
-    layer_2_json = network.output_neurons
-      |> Enum.map(fn (output_neuron) ->
-        Enum.map(network.hidden_neurons, fn (hidden_neuron) ->
-          Exmachina.Neuron.get_weight_for(hidden_neuron, output_neuron)
-        end)
-      end)
+    layer_2_json = network
+      |> Network.get_output_weights()
       |> Poison.encode!()
-
 
     {:ok, file} = File.open("lib/output/weights.js", [:write])
     :ok = IO.binwrite file, "document.layer1Weights = #{layer_1_json}; document.layer2Weights = #{layer_2_json};"

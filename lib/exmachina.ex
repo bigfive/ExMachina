@@ -1,6 +1,6 @@
 defmodule Exmachina do
   @num_output_units 10   # 1 unit for each label: "0" through "9"
-  @num_hidden_units 6    # coz.. I like the number
+  @num_hidden_units 12    # coz.. I like the number
   @num_input_units  256  # 1 unit for each pixel of the training cases
 
   def test do
@@ -48,24 +48,24 @@ defmodule Exmachina do
           |> print_square_image
         end
 
-        # Get result
+        # Get activities
         output_values = Enum.map(output_neurons, &Exmachina.OutputNeuron.get_last_activity/1)
 
+        # Get result
         input_number  = max_index(label_values)
         output_number = max_index(output_values)
+        correct = case output_number do
+          ^input_number -> 1
+          _other_number -> 0
+        end
 
         # Add answer to accumulator
-        answers = output_number
-          |> case do
-            ^input_number -> [1 | answers]
-            _other_number -> [0 | answers]
-          end
-          |> Enum.take(200)
+        answers = [{input_number, output_number, correct} | answers] |> Enum.take(200)
 
         # sometimes print a status update
         if rem(example_index, 10) == 0 do
-          fraction_correct = Enum.sum(answers) / length(answers)
-          print_over "r:#{run_through_index} e:#{example_index} (#{Float.round(fraction_correct * 100.0, 3)}% recently correct)"
+          fraction_correct = (answers |> Enum.map(& elem(&1, 2)) |> Enum.sum) / length(answers)
+          print_over "r:#{run_through_index} e:#{example_index} (#{Float.round(fraction_correct * 100.0, 3)}% recently correct) -- #{answers |> Enum.take(5) |> Enum.map(& elem(&1, 1)) |> Enum.join(",")}"
         end
 
         answers
@@ -106,21 +106,26 @@ defmodule Exmachina do
     num_pixels = length(pixels)
     width = round(:math.sqrt(num_pixels))
 
+    min = Enum.min(pixels)
+    max = Enum.max(pixels)
+
+    shade = fn (float) ->
+      case (float - min) / (max - min) do
+        f when f <= 0.2 -> " "
+        f when f <= 0.4 -> "-"
+        f when f <= 0.6 -> "x"
+        f when f <= 0.8 -> "H"
+        f when f >  0.8 -> "▓"
+      end
+    end
+
     IO.puts ""
     pixels
     |> Enum.chunk_every(width)
     |> Enum.each(fn line ->
       line
-      |> Enum.map(& :erlang.float_to_binary(&1, decimals: 2))
-      |> Enum.map(& String.pad_leading(&1, 4, " "))
-      |> Enum.join(" | ")
+      |> Enum.map(& shade.(&1))
       |> IO.puts
     end)
   end
-
-  defp shade(float) when float <= 0.2, do: " "
-  defp shade(float) when float <= 0.4, do: "░"
-  defp shade(float) when float <= 0.6, do: "▒"
-  defp shade(float) when float <= 0.8, do: "▓"
-  defp shade(float) when float >  0.8, do: "▮"
 end

@@ -15,8 +15,7 @@
 defmodule Exmachina.Neuron do
   use GenServer
 
-  @e :math.exp(1)
-  @learning_rate 0.2
+  @learning_rate 3.0
 
   defmodule Data do
     defstruct input_activities: %{}, num_inputs: nil, outputs: %{}, bias: nil
@@ -27,7 +26,7 @@ defmodule Exmachina.Neuron do
       |> Enum.map(& {&1, init_weight()})
       |> Enum.into(%{})
 
-    bias = init_weight()
+    bias = init_weight() - 2.0
 
     GenServer.start_link(__MODULE__, %Data{num_inputs: num_inputs, outputs: outputs, bias: bias})
   end
@@ -48,14 +47,15 @@ defmodule Exmachina.Neuron do
 
   def handle_cast(:fire, state) do
     with activity        <- compute_activity(state),
-         outgoing_errors <- send_activity_to_outputs(activity, state),
-         input_error     <- calculate_input_error(activity, outgoing_errors, state),
+         error_deltas    <- send_activity_and_receive_errors(activity, state),
+         global_error    <- calculate_global_error(error_deltas, state),
+         input_error     <- calculate_error_for_inputs(activity, global_error),
          true            <- send_back_to_inputs(input_error, state),
-         new_weights     <- get_new_weight_map(outgoing_errors, activity, state),
+         new_weights     <- get_new_weight_map(error_deltas, activity, state),
     do:  {:noreply, %{state | input_activities: %{}, outputs: new_weights}}
   end
 
-  defp init_weight, do: :rand.uniform() - 0.5
+  defp init_weight, do: (:rand.uniform() * 2) - 1.0
 
   defp record_input_activity(activity, from, %Data{input_activities: input_activities} = state) do
     %{state | input_activities: Map.put(input_activities, from, activity)}
@@ -67,36 +67,38 @@ defmodule Exmachina.Neuron do
 
   defp compute_activity(%Data{input_activities: input_activities, bias: bias}) do
     sum_activity = (Map.values(input_activities) ++ [bias]) |> Enum.sum
-    # (1 / (1 + :math.pow(@e, -sum_activity)))
     Numerix.Special.logistic(sum_activity)
   end
 
-  defp send_activity_to_outputs(activity, %Data{outputs: outputs}) do
-    Enum.map(outputs, fn {output_pid, weight} ->
+  defp send_activity_and_receive_errors(activity, %Data{outputs: outputs}) do
+    Task.async_stream(outputs, fn {output_pid, weight} ->
       weighted_activity = calculate_weighted_activity(activity, weight)
       delta = Exmachina.Neuron.activate(output_pid, weighted_activity)
       {output_pid, delta}
-    end)
+    end, max_concurrency: 999)
+    |> Enum.map(fn {:ok, val} -> val end)
     |> Enum.into(%{})
   end
 
-  defp calculate_input_error(activity, outgoing_errors, %Data{outputs: outputs}) do
-    overral_delta = outputs
-      |> Enum.map(fn {output_pid, weight} -> Map.get(outgoing_errors, output_pid) * weight end)
-      |> Enum.sum()
+  defp calculate_global_error(error_deltas, %Data{outputs: outputs}) do
+    outputs
+    |> Enum.map(fn {output_pid, weight} -> Map.get(error_deltas, output_pid) * weight end)
+    |> Enum.sum()
+  end
 
-    activity * (1 - activity) * overral_delta
+  defp calculate_error_for_inputs(activity, global_error) do
+    activity * (1 - activity) * global_error
   end
 
   defp send_back_to_inputs(input_error, %Data{input_activities: input_activities}) do
     Enum.all?(input_activities, fn {input_pid, _activity} ->
-      :ok = GenServer.reply(input_pid, input_error)
+      :ok == GenServer.reply(input_pid, input_error)
     end)
   end
 
-  defp get_new_weight_map(outgoing_errors, activity, %Data{outputs: outputs}) do
+  defp get_new_weight_map(error_deltas, activity, %Data{outputs: outputs}) do
     Enum.map(outputs, fn {output_pid, weight} ->
-      {output_pid, weight + Map.get(outgoing_errors, output_pid) * activity * @learning_rate}
+      {output_pid, weight - Map.get(error_deltas, output_pid) * activity * @learning_rate}
     end)
     |> Enum.into(%{})
   end

@@ -1,6 +1,6 @@
 defmodule Exmachina do
   @num_output_units 10   # 1 unit for each label: "0" through "9"
-  @num_hidden_units 12    # coz.. I like the number
+  @num_hidden_units 8    # coz.. I like the number
   @num_input_units  256  # 1 unit for each pixel of the training cases
 
   defmodule Network do
@@ -46,7 +46,7 @@ defmodule Exmachina do
         |> Stream.run()
 
         # sometimes dump the weights to a file
-        if rem(example_index, 100) == 0 do
+        if rem(example_index, 50) == 0 do
           layer_1_json = hidden_neurons
             |> Enum.map(fn (hidden_neuron) ->
               Enum.map(input_neurons, fn (input_neuron) ->
@@ -99,7 +99,7 @@ defmodule Exmachina do
   end
 
   def get_random_example() do
-    get_examples() |> List.first |> elem(1)
+    get_examples() |> List.first |> elem(0)
   end
 
   defp get_examples() do

@@ -1,6 +1,5 @@
 <html>
 <head>
-  <script type="text/javascript" src="weights.js"></script>
   <style>
     .wrapper > div {
       display: inline-block;
@@ -45,74 +44,94 @@
   <div class="wrapper" id="predictions"></div>
 
   <script>
-    var layerIds = ["layer_1_weights", "layer_2_weights"];
-    var layerWeightSet = [document.layer1Weights, document.layer2Weights];
+    function load_js(source) {
+       var head = document.getElementsByTagName('head')[0];
+       if (document.reladableScript) {
+         head.removeChild(document.reladableScript)
+       }
 
-    for (layerIndex in layerIds) {
-      var layerId = layerIds[layerIndex];
-      var layerWeights = layerWeightSet[layerIndex];
-      var weightsElem = document.getElementById(layerId);
+       var newScript = document.createElement('script');
+       newScript.src = source;
+       head.appendChild(newScript);
+       document.reladableScript = newScript;
+    }
 
-      var allPixels = [].concat(...layerWeights);
-      var maxPixel = Math.max(Math.max(...allPixels), Math.abs(Math.min(...allPixels)))
+    function renderPage() {
+      load_js("weights.js");
 
-      for (weightIndex in layerWeights) {
-        var neuron = layerWeights[weightIndex]
-        var neuronElem = document.createElement("div");
-        var pixelsElem = document.createElement("div");
-        neuronElem.className = "neuron";
-        pixelsElem.className = "pixels";
+      if (!!document.layer1Weights && !!document.layer2Weights) {
+        var layerIds = ["layer_1_weights", "layer_2_weights"];
+        var layerWeightSet = [document.layer1Weights, document.layer2Weights];
 
-        for (pixelIndex in neuron) {
-          var weight = neuron[pixelIndex]
-          var pixelElem = document.createElement("span");
-          var color = 255 - Math.floor((weight / maxPixel + 0.5) * 255);
-          pixelElem.style.background = "rgb("+color+","+color+","+color+")";
-          pixelElem.className = "pixel";
+        for (layerIndex in layerIds) {
+          var layerId = layerIds[layerIndex];
+          var weightsElem = document.getElementById(layerId);
+          weightsElem.innerHTML = "";
 
-          if (pixelIndex != 0 && pixelIndex % Math.sqrt(neuron.length) == 0) {
-            pixelsElem.appendChild(document.createElement("br"));
+          var layerWeights = layerWeightSet[layerIndex];
+          var allPixels = [].concat(...layerWeights);
+          var maxPixel = Math.max(Math.max(...allPixels), Math.abs(Math.min(...allPixels)))
+
+          for (weightIndex in layerWeights) {
+            var neuron = layerWeights[weightIndex]
+            var neuronElem = document.createElement("div");
+            var pixelsElem = document.createElement("div");
+            neuronElem.className = "neuron";
+            pixelsElem.className = "pixels";
+
+            for (pixelIndex in neuron) {
+              var weight = neuron[pixelIndex]
+              var pixelElem = document.createElement("span");
+              var color = 255 - Math.floor((weight / maxPixel + 0.5) * 255);
+              pixelElem.style.background = "rgb("+color+","+color+","+color+")";
+              pixelElem.className = "pixel";
+
+              if (pixelIndex != 0 && pixelIndex % Math.sqrt(neuron.length) == 0) {
+                pixelsElem.appendChild(document.createElement("br"));
+              }
+              pixelsElem.appendChild(pixelElem);
+            }
+            neuronElem.appendChild(pixelsElem);
+            weightsElem.appendChild(neuronElem);
           }
-          pixelsElem.appendChild(pixelElem);
         }
-        neuronElem.appendChild(pixelsElem);
-        weightsElem.appendChild(neuronElem);
+
+        var predictionsElem = document.getElementById("predictions");
+        predictionsElem.innerHTML = "";
+
+        for (predictionIndex in document.predictions) {
+          var prediction = document.predictions[predictionIndex]
+          var predictionElem = document.createElement("div");
+          var pixelsElem = document.createElement("div");
+          var detailsElem = document.createElement("p");
+          predictionElem.className = "prediction";
+          pixelsElem.className = "pixels";
+          detailsElem.textContent = "Predicted: " + prediction.output_number
+          detailsElem.className = (prediction.was_correct == 1 ? "details correct" : "details incorrect")
+
+          for (pixelIndex in prediction.pixels) {
+            var pixel = prediction.pixels[pixelIndex]
+            var pixelElem = document.createElement("span");
+            var color = 255 - Math.floor(pixel * 255);
+            pixelElem.style.background = "rgb("+color+","+color+","+color+")";
+            pixelElem.className = "pixel";
+
+            if (pixelIndex != 0 && pixelIndex % Math.sqrt(prediction.pixels.length) == 0) {
+              pixelsElem.appendChild(document.createElement("br"));
+            }
+            pixelsElem.appendChild(pixelElem);
+          }
+
+          predictionElem.appendChild(pixelsElem);
+          predictionElem.appendChild(detailsElem)
+          predictionsElem.appendChild(predictionElem);
+        }
       }
+
+      setTimeout(function(){ renderPage() }, 200);
     }
 
-    var predictionsElem = document.getElementById("predictions");
-
-    for (predictionIndex in document.predictions) {
-      var prediction = document.predictions[predictionIndex]
-      var predictionElem = document.createElement("div");
-      var pixelsElem = document.createElement("div");
-      var detailsElem = document.createElement("p");
-      predictionElem.className = "prediction";
-      pixelsElem.className = "pixels";
-      detailsElem.textContent = "Predicted: " + prediction.output_number
-      detailsElem.className = (prediction.was_correct == 1 ? "details correct" : "details incorrect")
-
-      for (pixelIndex in prediction.pixels) {
-        var pixel = prediction.pixels[pixelIndex]
-        var pixelElem = document.createElement("span");
-        var color = 255 - Math.floor(pixel * 255);
-        pixelElem.style.background = "rgb("+color+","+color+","+color+")";
-        pixelElem.className = "pixel";
-
-        if (pixelIndex != 0 && pixelIndex % Math.sqrt(prediction.pixels.length) == 0) {
-          pixelsElem.appendChild(document.createElement("br"));
-        }
-        pixelsElem.appendChild(pixelElem);
-      }
-
-      predictionElem.appendChild(pixelsElem);
-      predictionElem.appendChild(detailsElem);
-      predictionsElem.appendChild(predictionElem);
-    }
-
-    setTimeout(function(){
-       window.location.reload(1);
-    }, 2000);
+   renderPage()
   </script>
 </body>
 <html>

@@ -1,0 +1,88 @@
+<html>
+<head>
+  <script type="text/javascript" src="weights.js"></script>
+  <style>
+    .weights div {
+      display: inline-block;
+      margin: 10px;
+      border: 1px solid grey;
+    }
+    .weights span {
+      display: inline-block;
+      width: 5px;
+      height: 5px;
+    }
+
+    #layer_2_weights span {
+      width: 8px;
+      height: 8px;
+    }
+
+    hr {
+      float: none;
+      width: 100%;
+      margin: 40px;
+      opacity: 0;
+    }
+  </style>
+</head>
+<body>
+  <div>Output Weights</div>
+  <div class="weights" id="layer_2_weights"></div>
+
+  <hr />
+
+  <div>Input Weights</div>
+  <div class="weights" id="layer_1_weights"></div>
+
+
+
+  <script>
+    var weightsElem = document.getElementById("layer_1_weights");
+
+    for (weightIndex in document.layer1Weights) {
+      var node = document.layer1Weights[weightIndex]
+      var nodeElem = document.createElement("div");
+      weightsElem.appendChild(nodeElem);
+
+      for (nodeIndex in node) {
+        if (nodeIndex != 0 && nodeIndex % Math.sqrt(node.length) == 0) {
+          nodeElem.appendChild(document.createElement("br"));
+        }
+
+        var weight = node[nodeIndex]
+        var pixelElem = document.createElement("span");
+        pixelElem.style.background = "rgba(0,0,0," + weight + ")";
+        nodeElem.appendChild(pixelElem);
+      }
+    }
+  </script>
+
+  <script>
+    var weightsElem = document.getElementById("layer_2_weights");
+
+    for (weightIndex in document.layer2Weights) {
+      var node = document.layer2Weights[weightIndex]
+      var nodeElem = document.createElement("div");
+      weightsElem.appendChild(nodeElem);
+
+      for (nodeIndex in node) {
+        if (nodeIndex != 0 && nodeIndex % Math.sqrt(node.length) == 0) {
+          nodeElem.appendChild(document.createElement("br"));
+        }
+
+        var weight = node[nodeIndex]
+        var pixelElem = document.createElement("span");
+        pixelElem.style.background = "rgba(0,0,0," + weight + ")";
+        nodeElem.appendChild(pixelElem);
+      }
+    }
+  </script>
+
+  <script>
+    setTimeout(function(){
+       window.location.reload(1);
+    }, 10000);
+  </script>
+</body>
+<html>

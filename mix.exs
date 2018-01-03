@@ -20,6 +20,9 @@ defmodule Exmachina.Mixfile do
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
-    [{:numerix, "~> 0.4"}]
+    [
+      {:numerix, "~> 0.4"},
+      {:poison, "~> 3.1"},
+    ]
   end
 end

@@ -17,40 +17,49 @@ defmodule Exmachina.Neuron do
 
   @learning_rate 3.0
 
-  defmodule Data do
-    defstruct input_activities: %{}, num_inputs: nil, output_weights: %{}, bias: nil
+  defstruct soma: nil, dendrites: nil
+
+  defmodule Soma do
+    defstruct input_activities: %{}, num_inputs: nil, last_activity: nil, bias: nil
+  end
+
+  defmodule Dendrites do
+    defstruct output_weights: %{}, last_activity: nil
   end
 
   def start_link(num_inputs: num_inputs, output_pids: output_pids) do
-    outputs = output_pids
+    output_weights = output_pids
       |> Enum.map(& {&1, init_weight()})
       |> Enum.into(%{})
 
     bias = init_weight() - 2.0
 
-    GenServer.start_link(__MODULE__, %Data{num_inputs: num_inputs, output_weights: outputs, bias: bias})
+    soma = %Soma{num_inputs: num_inputs, bias: bias}
+    dendrites = %Dendrites{output_weights: output_weights}
+
+    GenServer.start_link(__MODULE__, %__MODULE__{soma: soma, dendrites: dendrites})
   end
 
   def activate(pid, activity), do: GenServer.call(pid, {:activate, activity})
   def get_weight_for(pid, output_pid), do: GenServer.call(pid, {:get_weight_for, output_pid})
 
-  def handle_call({:activate, activity}, from, %Data{input_activities: input_activities, num_inputs: num_inputs} = state) do
-    new_activities = record_input_activity(activity, from, input_activities)
-    fire_if_all_received(new_activities, num_inputs)
+  def handle_call({:activate, activity}, from, %__MODULE__{soma: soma} = state) do
+    new_activities = record_input_activity(activity, from, soma.input_activities)
+    fire_if_all_received(new_activities, soma.num_inputs)
 
-    {:noreply, %{state | input_activities: new_activities}}
+    {:noreply, %{state | soma: %{soma | input_activities: new_activities}}}
   end
 
-  def handle_call({:get_weight_for, output_pid}, _from, %Data{output_weights: output_weights} = state) do
-    {:reply, Map.get(output_weights, output_pid), state}
+  def handle_call({:get_weight_for, output_pid}, _from, %__MODULE__{dendrites: dendrites} = state) do
+    {:reply, Map.get(dendrites.output_weights, output_pid), state}
   end
 
-  def handle_cast(:fire, %Data{input_activities: input_activities, output_weights: output_weights, bias: bias} = state) do
-    with activity    <- compute_activity(input_activities, bias),
-         errors      <- output_activity(activity, output_weights),
-         true        <- reply_with_error(errors, activity, output_weights, input_activities),
-         new_weights <- adjust_weights(errors, activity, output_weights),
-    do:  {:noreply, %{state | input_activities: %{}, output_weights: new_weights}}
+  def handle_cast(:fire, %__MODULE__{dendrites: dendrites, soma: soma} = state) do
+    with activity    <- compute_activity(soma.input_activities, soma.bias),
+         errors      <- output_activity(activity, dendrites.output_weights),
+         true        <- reply_with_error(errors, activity, dendrites.output_weights, soma.input_activities),
+         new_weights <- adjust_weights(errors, activity, dendrites.output_weights),
+    do:  {:noreply, %{state | soma: %{soma | input_activities: %{}}, dendrites: %{dendrites | output_weights: new_weights}}}
   end
 
   defp init_weight, do: (:rand.uniform() * 2) - 1.0

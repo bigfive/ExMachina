@@ -11,13 +11,11 @@ defmodule Exmachina.Example do
 
       %__MODULE__{pixels: pixels, labels: labels}
     end)
-    |> Enum.shuffle
-    |> Enum.with_index
   end
 
   def load_random_example() do
     load_examples()
+    |> Enum.shuffle
     |> List.first
-    |> elem(0)
   end
 end

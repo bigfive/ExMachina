@@ -2,20 +2,28 @@
 <head>
   <script type="text/javascript" src="weights.js"></script>
   <style>
-    .weights div {
+    .wrapper > div {
+      display: inline-block;
+      margin: 4px;
+    }
+    .pixels {
       display: inline-block;
       margin: 10px;
       border: 1px solid grey;
     }
-    .weights span {
+    .details {
+      text-align: center;
+    }
+    .details.correct {
+      color: green;
+    }
+    .details.incorrect {
+      color: red;
+    }
+    .pixel {
       display: inline-block;
       width: 4px;
       height: 4px;
-    }
-
-    #layer_2_weights span {
-      width: 8px;
-      height: 8px;
     }
 
     hr {
@@ -27,48 +35,81 @@
   </style>
 </head>
 <body>
-  <div>Output Weights</div>
-  <div class="weights" id="layer_2_weights"></div>
+  <h2>Current Weights</h2>
+  <div class="wrapper" id="layer_2_weights"></div>
+  <div class="wrapper" id="layer_1_weights"></div>
 
   <hr />
 
-  <div>Input Weights</div>
-  <div class="weights" id="layer_1_weights"></div>
+  <h2>Recent Predictions</h2>
+  <div class="wrapper" id="predictions"></div>
 
   <script>
-    var layerIds, layerIndex, layerId, weightsElem, weightIndex, node, nodeElem,
-        layerWeightSet, layerWeights, nodeIndex, weight, pixelElem, color
-
-    layerIds = ["layer_1_weights", "layer_2_weights"];
-    layerWeightSet = [document.layer1Weights, document.layer2Weights];
+    var layerIds = ["layer_1_weights", "layer_2_weights"];
+    var layerWeightSet = [document.layer1Weights, document.layer2Weights];
 
     for (layerIndex in layerIds) {
-      layerId = layerIds[layerIndex];
-      layerWeights = layerWeightSet[layerIndex];
-      weightsElem = document.getElementById(layerId);
+      var layerId = layerIds[layerIndex];
+      var layerWeights = layerWeightSet[layerIndex];
+      var weightsElem = document.getElementById(layerId);
 
       for (weightIndex in layerWeights) {
-        node = layerWeights[weightIndex]
-        nodeElem = document.createElement("div");
-        weightsElem.appendChild(nodeElem);
+        var neuron = layerWeights[weightIndex]
+        var neuronElem = document.createElement("div");
+        var pixelsElem = document.createElement("div");
+        neuronElem.className = "neuron";
+        pixelsElem.className = "pixels";
 
-        for (nodeIndex in node) {
-          if (nodeIndex != 0 && nodeIndex % Math.sqrt(node.length) == 0) {
-            nodeElem.appendChild(document.createElement("br"));
-          }
-
-          weight = node[nodeIndex]
-          pixelElem = document.createElement("span");
-          color = Math.floor(weight * -255);
+        for (pixelIndex in neuron) {
+          var weight = neuron[pixelIndex]
+          var pixelElem = document.createElement("span");
+          var color = 255 - Math.floor(weight * 255);
           pixelElem.style.background = "rgb("+color+","+color+","+color+")";
-          nodeElem.appendChild(pixelElem);
+          pixelElem.className = "pixel";
+
+          if (pixelIndex != 0 && pixelIndex % Math.sqrt(neuron.length) == 0) {
+            pixelsElem.appendChild(document.createElement("br"));
+          }
+          pixelsElem.appendChild(pixelElem);
         }
+        neuronElem.appendChild(pixelsElem);
+        weightsElem.appendChild(neuronElem);
       }
     }
 
-    setTimeout(function(){
-       window.location.reload(1);
-    }, 1000);
+    var predictionsElem = document.getElementById("predictions");
+
+    for (predictionIndex in document.predictions) {
+      var prediction = document.predictions[predictionIndex]
+      var predictionElem = document.createElement("div");
+      var pixelsElem = document.createElement("div");
+      var detailsElem = document.createElement("p");
+      predictionElem.className = "prediction";
+      pixelsElem.className = "pixels";
+      detailsElem.textContent = "Predicted: " + prediction.output_number
+      detailsElem.className = (prediction.was_correct == 1 ? "details correct" : "details incorrect")
+
+      for (pixelIndex in prediction.pixels) {
+        var pixel = prediction.pixels[pixelIndex]
+        var pixelElem = document.createElement("span");
+        var color = 255 - Math.floor(pixel * 255);
+        pixelElem.style.background = "rgb("+color+","+color+","+color+")";
+        pixelElem.className = "pixel";
+
+        if (pixelIndex != 0 && pixelIndex % Math.sqrt(prediction.pixels.length) == 0) {
+          pixelsElem.appendChild(document.createElement("br"));
+        }
+        pixelsElem.appendChild(pixelElem);
+      }
+
+      predictionElem.appendChild(pixelsElem);
+      predictionElem.appendChild(detailsElem);
+      predictionsElem.appendChild(predictionElem);
+    }
+
+    // setTimeout(function(){
+    //    window.location.reload(1);
+    // }, 600);
   </script>
 </body>
 <html>

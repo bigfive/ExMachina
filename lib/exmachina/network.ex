@@ -30,7 +30,7 @@ defmodule Exmachina.Network do
     |> set_labels(label_values)
     |> send_inputs(pixel_intensities)
     |> get_outputs()
-    |> output_as_prediction(label_values)
+    |> output_as_prediction(label_values, pixel_intensities)
   end
 
   def get_input_weights(network) do
@@ -73,14 +73,14 @@ defmodule Exmachina.Network do
     |> Enum.map(&OutputNeuron.get_last_activity/1)
   end
 
-  defp output_as_prediction(outputs, labels) do
+  defp output_as_prediction(outputs, labels, pixels) do
     input_number  = max_index(labels)
     output_number = max_index(outputs)
     was_correct   = case output_number do
       ^input_number -> 1
       _other_number -> 0
     end
-    %Prediction{input_number: input_number, output_number: output_number, was_correct: was_correct}
+    %Prediction{input_number: input_number, output_number: output_number, was_correct: was_correct, pixels: pixels}
   end
 
   defp max_index(outputs) do

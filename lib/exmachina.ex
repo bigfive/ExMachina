@@ -7,9 +7,9 @@ defmodule Exmachina do
   @num_hidden_units 14   # coz.. I like the number
   @num_input_units  256  # 1 unit for each pixel of the training cases
 
-  @num_times_through_examples 15
-  @dump_weights_every 50
-  @print_status_every 10
+  @num_times_through_examples 20
+  @dump_weights_every 20
+  @print_status_every 5
 
   def learn do
     # create the network
@@ -20,7 +20,10 @@ defmodule Exmachina do
 
     # run through the training examples multiple times
     for run_through_index <- 1..@num_times_through_examples do
-      Enum.reduce(examples, [], fn ({example, example_index}, predictions) ->
+      examples
+      |> Enum.shuffle()
+      |> Enum.with_index()
+      |> Enum.reduce([], fn ({example, example_index}, predictions) ->
 
         # Get the prediction for this example (getting a prediction also 'learns' the example)
         prediction = Network.get_prediction_for_example(network, example)
@@ -29,7 +32,7 @@ defmodule Exmachina do
         predictions = [prediction | predictions] |> Enum.take(200)
 
         # sometimes dump the weights to a file
-        if rem(example_index, @dump_weights_every) == 0, do: save_weights_to_file(network)
+        if rem(example_index, @dump_weights_every) == 0, do: save_status_to_file(network, predictions)
 
         # sometimes print a status update
         if rem(example_index, @print_status_every) == 0, do: print_status(predictions, run_through_index, example_index)
@@ -42,7 +45,7 @@ defmodule Exmachina do
     network
   end
 
-  defp save_weights_to_file(network) do
+  defp save_status_to_file(network, predictions) do
     layer_1_json = network
       |> Network.get_input_weights()
       |> Poison.encode!()
@@ -51,8 +54,16 @@ defmodule Exmachina do
       |> Network.get_output_weights()
       |> Poison.encode!()
 
+    prediction_json = predictions
+      |> Enum.take(10)
+      |> Poison.encode!()
+
     {:ok, file} = File.open("lib/output/weights.js", [:write])
-    :ok = IO.binwrite file, "document.layer1Weights = #{layer_1_json}; document.layer2Weights = #{layer_2_json};"
+    :ok = IO.binwrite file, "
+      document.layer1Weights = #{layer_1_json};
+      document.layer2Weights = #{layer_2_json};
+      document.predictions   = #{prediction_json};
+    "
     :ok = File.close file
   end
 

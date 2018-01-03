@@ -59,12 +59,7 @@ defmodule Exmachina do
     fraction_correct = number_correct / length(predictions)
     percent_correct = Float.round(fraction_correct * 100.0, 3)
 
-    recent_predictions = predictions
-      |> Enum.take(5)
-      |> Enum.map(fn %Prediction{output_number: number} -> number end)
-      |> Enum.join(",")
-
-    print_over "r:#{run_through_index} e:#{example_index} (#{percent_correct}% recently correct) -- #{recent_predictions}"
+    print_over "r:#{run_through_index} e:#{example_index} (#{percent_correct}% recently correct)"
   end
 
   defp print_over(string) do

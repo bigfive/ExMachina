@@ -1,36 +1,35 @@
 defmodule Exmachina.Neuron.Dendrites do
-  alias Exmachina.Neuron
-  @learning_rate 3.0
+  defstruct input_activities: %{}, num_inputs: nil, last_activity: nil, bias: nil, activity: nil
 
-  defstruct output_weights: %{}, errors: %{}
-
-  def output_activity(%__MODULE__{output_weights: output_weights} = dendrites, activity) do
-    errors = output_weights
-      |> Task.async_stream(fn {output_pid, weight} ->
-        weighted_activity = calculate_weighted_activity(activity, weight)
-        error = Neuron.activate(output_pid, weighted_activity)
-        {output_pid, {error, weight}}
-      end, max_concurrency: 999)
-      |> Enum.map(fn {:ok, val} -> val end)
-      |> Enum.into(%{})
-
-    %{dendrites | errors: errors}
+  def add_input_activity(%__MODULE__{input_activities: input_activities} = dendrites, activity, from) do
+    %{dendrites | input_activities: Map.put(input_activities, from, activity)}
   end
 
-  def adjust_weights(%__MODULE__{errors: errors} = dendrites, activity) do
-    new_weights = errors
-      |> Enum.map(fn {output_pid, {error, weight}} ->
-        new_weight = weight - error * activity * @learning_rate
-        {output_pid, new_weight}
-      end)
-      |> Enum.into(%{})
+  def compute_activity(%__MODULE__{input_activities: input_activities, bias: bias} = dendrites) do
+    sum_activity = (Map.values(input_activities) ++ [bias]) |> Enum.sum
+    activity = Numerix.Special.logistic(sum_activity)
+    %{dendrites | activity: activity}
+  end
 
-    %{dendrites | output_weights: new_weights}
+  def reply_with_error(%__MODULE__{input_activities: input_activities, activity: activity} = dendrites, errors) do
+    global_error = calculate_global_error(errors)
+    input_error  = calculate_error_for_inputs(activity, global_error)
+
+    Enum.all?(input_activities, fn {input_pid, _activity} ->
+      :ok == GenServer.reply(input_pid, input_error)
+    end)
+    %{dendrites | input_activities: %{}}
   end
 
   # ---
 
-  defp calculate_weighted_activity(activity, weight) do
-    activity * weight
+  defp calculate_global_error(errors) do
+    errors
+    |> Enum.map(fn {_output_pid, {error, weight}} -> error * weight end)
+    |> Enum.sum()
+  end
+
+  defp calculate_error_for_inputs(activity, global_error) do
+    activity * (1 - activity) * global_error
   end
 end

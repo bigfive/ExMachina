@@ -1,16 +1,16 @@
 defmodule Exmachina.OutputNeuron do
-  alias Exmachina.Neuron.Soma
   alias Exmachina.Neuron.Dendrites
+  alias Exmachina.Neuron.Axon
 
   use GenServer
 
-  defstruct soma: nil, target: nil
+  defstruct dendrites: nil, target: nil
 
   def start_link(num_inputs: num_inputs) do
     bias = init_weight() - 2.0
-    soma = %Soma{num_inputs: num_inputs, bias: bias}
+    dendrites = %Dendrites{num_inputs: num_inputs, bias: bias}
 
-    GenServer.start_link(__MODULE__, %__MODULE__{soma: soma})
+    GenServer.start_link(__MODULE__, %__MODULE__{dendrites: dendrites})
   end
 
   def set_target(pid, target) do
@@ -21,28 +21,28 @@ defmodule Exmachina.OutputNeuron do
     GenServer.call(pid, :get_last_activity)
   end
 
-  def handle_call({:activate, activity}, from, %__MODULE__{soma: soma} = state) do
-    soma = Soma.add_input_activity(soma, activity, from)
-    fire_if_all_received(soma.input_activities, soma.num_inputs)
+  def handle_call({:activate, activity}, from, %__MODULE__{dendrites: dendrites} = state) do
+    dendrites = Dendrites.add_input_activity(dendrites, activity, from)
+    fire_if_all_received(dendrites.input_activities, dendrites.num_inputs)
 
-    {:noreply, %{state | soma: soma}}
+    {:noreply, %{state | dendrites: dendrites}}
   end
 
   def handle_call({:set_target, target}, _from, state) do
     {:reply, :ok, %{state | target: target}}
   end
 
-  def handle_call(:get_last_activity, _from, %__MODULE__{soma: soma} = state) do
-    {:reply, soma.activity, state}
+  def handle_call(:get_last_activity, _from, %__MODULE__{dendrites: dendrites} = state) do
+    {:reply, dendrites.activity, state}
   end
 
-  def handle_cast(:fire, %__MODULE__{soma: soma, target: target} = state) do
+  def handle_cast(:fire, %__MODULE__{dendrites: dendrites, target: target} = state) do
     with(
-      soma  <- Soma.compute_activity(soma),
-      error <- mimic_error_response(soma.activity, target),
-      soma  <- Soma.reply_with_error(soma, error)
+      dendrites  <- Dendrites.compute_activity(dendrites),
+      error      <- mimic_error_response(dendrites.activity, target),
+      dendrites  <- Dendrites.reply_with_error(dendrites, error)
     ) do
-      {:noreply, %{state | soma: soma}}
+      {:noreply, %{state | dendrites: dendrites}}
     end
   end
 

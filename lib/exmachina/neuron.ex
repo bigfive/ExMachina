@@ -1,19 +1,19 @@
 defmodule Exmachina.Neuron do
-  alias Exmachina.Neuron.Soma
   alias Exmachina.Neuron.Dendrites
+  alias Exmachina.Neuron.Axon
 
   use GenServer
 
-  defstruct soma: nil, dendrites: nil
+  defstruct dendrites: nil, axon: nil
 
   def start_link(num_inputs: num_inputs, output_pids: output_pids) do
     bias = init_weight() - 2.0
-    soma = %Soma{num_inputs: num_inputs, bias: bias}
+    dendrites = %Dendrites{num_inputs: num_inputs, bias: bias}
 
     output_weights = output_pids |> Enum.map(& {&1, init_weight()}) |> Enum.into(%{})
-    dendrites = %Dendrites{output_weights: output_weights}
+    axon = %Axon{output_weights: output_weights}
 
-    GenServer.start_link(__MODULE__, %__MODULE__{soma: soma, dendrites: dendrites})
+    GenServer.start_link(__MODULE__, %__MODULE__{dendrites: dendrites, axon: axon})
   end
 
   def activate(pid, activity) do
@@ -24,27 +24,27 @@ defmodule Exmachina.Neuron do
     GenServer.call(pid, {:get_weight_for, output_pid})
   end
 
-  def handle_call({:activate, activity}, from, %__MODULE__{soma: soma} = state) do
-    soma = Soma.add_input_activity(soma, activity, from)
-    fire_if_all_received(soma.input_activities, soma.num_inputs)
+  def handle_call({:activate, activity}, from, %__MODULE__{dendrites: dendrites} = state) do
+    dendrites = Dendrites.add_input_activity(dendrites, activity, from)
+    fire_if_all_received(dendrites.input_activities, dendrites.num_inputs)
 
-    {:noreply, %{state | soma: soma}}
+    {:noreply, %{state | dendrites: dendrites}}
   end
 
-  def handle_call({:get_weight_for, output_pid}, _from, %__MODULE__{dendrites: dendrites} = state) do
-    weight = Map.get(dendrites.output_weights, output_pid)
+  def handle_call({:get_weight_for, output_pid}, _from, %__MODULE__{axon: axon} = state) do
+    weight = Map.get(axon.output_weights, output_pid)
 
     {:reply, weight, state}
   end
 
-  def handle_cast(:fire, %__MODULE__{soma: soma, dendrites: dendrites} = state) do
+  def handle_cast(:fire, %__MODULE__{dendrites: dendrites, axon: axon} = state) do
     with(
-      soma        <- Soma.compute_activity(soma),
-      dendrites   <- Dendrites.output_activity(dendrites, soma.activity),
-      soma        <- Soma.reply_with_error(soma, dendrites.errors),
-      dendrites   <- Dendrites.adjust_weights(dendrites, soma.activity)
+      dendrites <- Dendrites.compute_activity(dendrites),
+      axon      <- Axon.output_activity(axon, dendrites.activity),
+      dendrites <- Dendrites.reply_with_error(dendrites, axon.errors),
+      axon      <- Axon.adjust_weights(axon, dendrites.activity)
     ) do
-      {:noreply, %{state | soma: soma, dendrites: dendrites}}
+      {:noreply, %{state | dendrites: dendrites, axon: axon}}
     end
   end
 

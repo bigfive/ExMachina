@@ -15,7 +15,7 @@
 defmodule Exmachina.Neuron do
   use GenServer
 
-  @learning_rate 2.0
+  @learning_rate 3.0
 
   defmodule Data do
     defstruct input_activities: %{}, num_inputs: nil, outputs: %{}, bias: nil

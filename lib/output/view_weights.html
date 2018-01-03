@@ -36,48 +36,36 @@
   <div class="weights" id="layer_1_weights"></div>
 
   <script>
-    var weightsElem = document.getElementById("layer_1_weights");
+    var layerIds, layerIndex, layerId, weightsElem, weightIndex, node, nodeElem,
+        layerWeightSet, layerWeights, nodeIndex, weight, pixelElem, color
 
-    for (weightIndex in document.layer1Weights) {
-      var node = document.layer1Weights[weightIndex]
-      var nodeElem = document.createElement("div");
-      weightsElem.appendChild(nodeElem);
+    layerIds = ["layer_1_weights", "layer_2_weights"];
+    layerWeightSet = [document.layer1Weights, document.layer2Weights];
 
-      for (nodeIndex in node) {
-        if (nodeIndex != 0 && nodeIndex % Math.sqrt(node.length) == 0) {
-          nodeElem.appendChild(document.createElement("br"));
+    for (layerIndex in layerIds) {
+      layerId = layerIds[layerIndex];
+      layerWeights = layerWeightSet[layerIndex];
+      weightsElem = document.getElementById(layerId);
+
+      for (weightIndex in layerWeights) {
+        node = layerWeights[weightIndex]
+        nodeElem = document.createElement("div");
+        weightsElem.appendChild(nodeElem);
+
+        for (nodeIndex in node) {
+          if (nodeIndex != 0 && nodeIndex % Math.sqrt(node.length) == 0) {
+            nodeElem.appendChild(document.createElement("br"));
+          }
+
+          weight = node[nodeIndex]
+          pixelElem = document.createElement("span");
+          color = Math.floor(weight * -255);
+          pixelElem.style.background = "rgb("+color+","+color+","+color+")";
+          nodeElem.appendChild(pixelElem);
         }
-
-        var weight = node[nodeIndex]
-        var pixelElem = document.createElement("span");
-        pixelElem.style.background = "rgba(0,0,0," + weight + ")";
-        nodeElem.appendChild(pixelElem);
       }
     }
-  </script>
 
-  <script>
-    var weightsElem = document.getElementById("layer_2_weights");
-
-    for (weightIndex in document.layer2Weights) {
-      var node = document.layer2Weights[weightIndex]
-      var nodeElem = document.createElement("div");
-      weightsElem.appendChild(nodeElem);
-
-      for (nodeIndex in node) {
-        if (nodeIndex != 0 && nodeIndex % Math.sqrt(node.length) == 0) {
-          nodeElem.appendChild(document.createElement("br"));
-        }
-
-        var weight = node[nodeIndex]
-        var pixelElem = document.createElement("span");
-        pixelElem.style.background = "rgba(0,0,0," + weight + ")";
-        nodeElem.appendChild(pixelElem);
-      }
-    }
-  </script>
-
-  <script>
     setTimeout(function(){
        window.location.reload(1);
     }, 1000);

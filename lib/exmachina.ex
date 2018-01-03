@@ -4,7 +4,7 @@ defmodule Exmachina do
   alias Exmachina.Prediction
 
   @num_output_units 10   # 1 unit for each label: "0" through "9"
-  @num_hidden_units 14    # coz.. I like the number
+  @num_hidden_units 14   # coz.. I like the number
   @num_input_units  256  # 1 unit for each pixel of the training cases
 
   @num_times_through_examples 15
@@ -20,9 +20,12 @@ defmodule Exmachina do
 
     # run through the training examples multiple times
     for run_through_index <- 1..@num_times_through_examples do
-      examples
-      |> Enum.reduce([], fn ({example, example_index}, predictions) ->
+      Enum.reduce(examples, [], fn ({example, example_index}, predictions) ->
+
+        # Get the prediction for this example (getting a prediction also 'learns' the example)
         prediction = Network.get_prediction_for_example(network, example)
+
+        # Add it to the predictions accumulator
         predictions = [prediction | predictions] |> Enum.take(200)
 
         # sometimes dump the weights to a file
@@ -31,7 +34,9 @@ defmodule Exmachina do
         # sometimes print a status update
         if rem(example_index, @print_status_every) == 0, do: print_status(predictions, run_through_index, example_index)
 
+        # return the accumulator
         predictions
+
       end)
     end
     network

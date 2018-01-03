@@ -26,11 +26,10 @@ defmodule Exmachina.Network do
   end
 
   def get_prediction_for_example(network, %Example{pixels: pixel_intensities, labels: label_values}) do
-    set_labels(network, label_values)
-    send_inputs(network, pixel_intensities)
-
     network
-    |> get_outputs
+    |> set_labels(label_values)
+    |> send_inputs(pixel_intensities)
+    |> get_outputs()
     |> output_as_prediction(label_values)
   end
 
@@ -58,6 +57,7 @@ defmodule Exmachina.Network do
     |> Enum.each(fn ({output_neuron, label_value}) ->
       OutputNeuron.set_target(output_neuron, label_value)
     end)
+    network
   end
 
   defp send_inputs(network, input_intensities) do
@@ -65,6 +65,7 @@ defmodule Exmachina.Network do
     |> Enum.zip(input_intensities)
     |> Task.async_stream(fn {neuron, intensity} -> Neuron.activate(neuron, intensity) end, max_concurrency: 999)
     |> Stream.run()
+    network
   end
 
   defp get_outputs(network) do

@@ -41,7 +41,7 @@ defmodule Exmachina.Neuron do
 
   def handle_cast(:fire, %__MODULE__{dendrites: dendrites, axon: axon} = state) do
     with(
-      dendrites <- Dendrites.compute_logistic_activity(dendrites),
+      dendrites <- Dendrites.compute_logistic_activity(dendrites, activity_values(dendrites.input_activities)),
       axon      <- Axon.send_and_receive(axon, weighted_activity(axon.output_weights, dendrites.activity)),
       dendrites <- Dendrites.reply_with(dendrites, overall_error(axon.responses, axon.output_weights, dendrites.activity)),
       axon      <- Axon.adjust_weights(axon, weight_adjustments(axon.responses, dendrites.activity))
@@ -54,6 +54,11 @@ defmodule Exmachina.Neuron do
 
   defp fire_if_all_received(input_activities, num_inputs) do
     if map_size(input_activities) == num_inputs, do: GenServer.cast(self(), :fire)
+  end
+
+  defp activity_values(activities) do
+    activities
+    |> Map.values()
   end
 
   defp weighted_activity(output_weights, activity) do

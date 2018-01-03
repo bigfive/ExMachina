@@ -37,7 +37,7 @@ defmodule Exmachina.OutputNeuron do
 
   def handle_cast(:fire, %__MODULE__{dendrites: dendrites, target: target} = state) do
     with(
-      dendrites <- Dendrites.compute_logistic_activity(dendrites),
+      dendrites <- Dendrites.compute_logistic_activity(dendrites, activity_values(dendrites.input_activities)),
       dendrites <- Dendrites.reply_with(dendrites, error_response(target, dendrites.activity))
     ) do
       {:noreply, %{state | dendrites: dendrites}}
@@ -45,6 +45,11 @@ defmodule Exmachina.OutputNeuron do
   end
 
   defp init_weight, do: (:rand.uniform() * 2) - 1.0
+
+  defp activity_values(activities) do
+    activities
+    |> Map.values()
+  end
 
   defp fire_if_all_received(input_activities, num_inputs) do
     if map_size(input_activities) == num_inputs, do: GenServer.cast(self(), :fire)

@@ -7,16 +7,83 @@ defmodule Exmachina do
   @dump_weights_every 50
   @print_status_every 10
 
-  defmodule Network do
-    defstruct output_neurons: [], hidden_neurons: [], input_neurons: []
-  end
-
   defmodule Example do
     defstruct pixels: [], labels: []
+
+    def load_examples do
+      "lib/examples/semeion.data"
+      |> File.stream!()
+      |> Enum.map(fn line ->
+        row = line |> String.trim("\n") |> String.split(" ")
+        pixels = Enum.take(row, 256) |> Enum.map(&String.to_float/1)
+        labels = Enum.take(row, -10) |> Enum.map(&String.to_integer/1)
+
+        %__MODULE__{pixels: pixels, labels: labels}
+      end)
+      |> Enum.shuffle
+      |> Enum.with_index
+    end
+
+    def load_random_example() do
+      load_examples()
+      |> List.first
+      |> elem(0)
+    end
   end
 
   defmodule Prediction do
     defstruct input_number: nil, output_number: nil, was_correct: nil
+  end
+
+  defmodule Network do
+    defstruct output_neurons: [], hidden_neurons: [], input_neurons: []
+
+    def get_prediction_from_example(network, %Example{pixels: pixel_intensities, labels: label_values}) do
+      set_labels(network, label_values)
+      send_inputs(network, pixel_intensities)
+
+      network
+      |> get_outputs
+      |> output_as_prediction(label_values)
+    end
+
+    defp set_labels(network, labels) do
+      network.output_neurons
+      |> Enum.zip(labels)
+      |> Enum.each(fn ({output_neuron, label_value}) ->
+        Exmachina.OutputNeuron.set_target(output_neuron, label_value)
+      end)
+    end
+
+    defp send_inputs(network, input_intensities) do
+      network.input_neurons
+      |> Enum.zip(input_intensities)
+      |> Task.async_stream(fn {neuron, intensity} -> Exmachina.Neuron.activate(neuron, intensity) end, max_concurrency: 999)
+      |> Stream.run()
+    end
+
+    defp get_outputs(network) do
+      network.output_neurons
+      |> Enum.map(&Exmachina.OutputNeuron.get_last_activity/1)
+    end
+
+    defp output_as_prediction(outputs, labels) do
+      input_number  = max_index(labels)
+      output_number = max_index(outputs)
+      was_correct   = case output_number do
+        ^input_number -> 1
+        _other_number -> 0
+      end
+      %Prediction{input_number: input_number, output_number: output_number, was_correct: was_correct}
+    end
+
+    defp max_index(outputs) do
+      outputs
+      |> Enum.with_index
+      |> Enum.map(fn {output, index} -> {index, output} end)
+      |> Enum.max_by(& elem(&1, 1))
+      |> elem(0)
+    end
   end
 
   def learn do
@@ -41,13 +108,13 @@ defmodule Exmachina do
     network = %Network{output_neurons: output_neurons, hidden_neurons: hidden_neurons, input_neurons: input_neurons}
 
     # load the examples
-    examples = get_examples()
+    examples = Example.load_examples()
 
     # run through the training examples multiple times
     for run_through_index <- 1..@num_times_through_examples do
       examples
       |> Enum.reduce([], fn ({example, example_index}, predictions) ->
-        prediction = get_prediction_from_example(example, network)
+        prediction = Network.get_prediction_from_example(network, example)
         predictions = [prediction | predictions] |> Enum.take(200)
 
         # sometimes dump the weights to a file
@@ -60,49 +127,6 @@ defmodule Exmachina do
       end)
     end
     network
-  end
-
-  def get_random_example() do
-    get_examples() |> List.first |> elem(0)
-  end
-
-  def get_prediction_from_example(%Example{pixels: pixel_intensities, labels: label_values}, network) do
-    set_labels(network, label_values)
-    send_inputs(network, pixel_intensities)
-
-    network
-    |> get_outputs
-    |> output_as_prediction(label_values)
-  end
-
-  defp set_labels(network, labels) do
-    network.output_neurons
-    |> Enum.zip(labels)
-    |> Enum.each(fn ({output_neuron, label_value}) ->
-      Exmachina.OutputNeuron.set_target(output_neuron, label_value)
-    end)
-  end
-
-  defp send_inputs(network, input_intensities) do
-    network.input_neurons
-    |> Enum.zip(input_intensities)
-    |> Task.async_stream(fn {neuron, intensity} -> Exmachina.Neuron.activate(neuron, intensity) end, max_concurrency: 999)
-    |> Stream.run()
-  end
-
-  defp get_outputs(network) do
-    network.output_neurons
-    |> Enum.map(&Exmachina.OutputNeuron.get_last_activity/1)
-  end
-
-  defp output_as_prediction(outputs, labels) do
-    input_number  = max_index(labels)
-    output_number = max_index(outputs)
-    was_correct   = case output_number do
-      ^input_number -> 1
-      _other_number -> 0
-    end
-    %Prediction{input_number: input_number, output_number: output_number, was_correct: was_correct}
   end
 
   defp save_weights_to_file(network) do
@@ -126,28 +150,6 @@ defmodule Exmachina do
     {:ok, file} = File.open("lib/output/weights.js", [:write])
     :ok = IO.binwrite file, "document.layer1Weights = #{layer_1_json}; document.layer2Weights = #{layer_2_json};"
     :ok = File.close file
-  end
-
-  defp get_examples() do
-    "lib/examples/semeion.data"
-    |> File.stream!()
-    |> Enum.map(fn line ->
-      row = line |> String.trim("\n") |> String.split(" ")
-      pixels = Enum.take(row, 256) |> Enum.map(&String.to_float/1)
-      labels = Enum.take(row, -10) |> Enum.map(&String.to_integer/1)
-
-      %Example{pixels: pixels, labels: labels}
-    end)
-    |> Enum.shuffle
-    |> Enum.with_index
-  end
-
-  defp max_index(outputs) do
-    outputs
-    |> Enum.with_index
-    |> Enum.map(fn {output, index} -> {index, output} end)
-    |> Enum.max_by(& elem(&1, 1))
-    |> elem(0)
   end
 
   defp print_status(predictions, run_through_index, example_index) do

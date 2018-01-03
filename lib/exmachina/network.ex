@@ -25,14 +25,6 @@ defmodule Exmachina.Network do
     %__MODULE__{output_neurons: output_neurons, hidden_neurons: hidden_neurons, input_neurons: input_neurons}
   end
 
-  def get_prediction_for_example(network, %Example{pixels: pixel_intensities, labels: label_values}) do
-    network
-    |> set_labels(label_values)
-    |> send_inputs(pixel_intensities)
-    |> get_outputs()
-    |> output_as_prediction(label_values, pixel_intensities)
-  end
-
   def get_input_weights(network) do
     network.hidden_neurons
     |> Enum.map(fn (hidden_neuron) ->
@@ -49,6 +41,14 @@ defmodule Exmachina.Network do
         Exmachina.Neuron.get_weight_for(hidden_neuron, output_neuron)
       end)
     end)
+  end
+
+  def get_prediction_for_example(network, %Example{pixels: pixel_intensities, labels: label_values}) do
+    network
+    |> set_labels(label_values)
+    |> send_inputs(pixel_intensities)
+    |> get_outputs()
+    |> output_as_prediction(label_values, pixel_intensities)
   end
 
   defp set_labels(network, labels) do

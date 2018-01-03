@@ -37,9 +37,8 @@ defmodule Exmachina.OutputNeuron do
 
   def handle_cast(:fire, %__MODULE__{dendrites: dendrites, target: target} = state) do
     with(
-      dendrites  <- Dendrites.compute_activity(dendrites),
-      error      <- mimic_error_response(dendrites.activity, target),
-      dendrites  <- Dendrites.reply_with_error(dendrites, error)
+      dendrites <- Dendrites.compute_logistic_activity(dendrites),
+      dendrites <- Dendrites.reply_with(dendrites, error_response(target, dendrites.activity))
     ) do
       {:noreply, %{state | dendrites: dendrites}}
     end
@@ -51,9 +50,8 @@ defmodule Exmachina.OutputNeuron do
     if map_size(input_activities) == num_inputs, do: GenServer.cast(self(), :fire)
   end
 
-  defp mimic_error_response(activity, target) do
-    weight = 1
+  defp error_response(target, activity) do
     error = -(target - activity)
-    %{self() => {error, weight}}
+    activity * (1 - activity) * error
   end
 end

@@ -36,36 +36,6 @@ defmodule Exmachina.Neuron do
   end
 
   def fire(%Neuron{type: type} = neuron) do
-    neuron
-    |> (& apply(type, :compute_activity, [&1])).()
-    |> (& apply(type, :send_forward_and_receive_errors, [&1])).()
-    |> (& apply(type, :send_error_backward, [&1])).()
-    |> (& apply(type, :adjust_weights, [&1])).()
-  end
-
-  defmacro __using__(_) do
-    quote do
-      alias Exmachina.Neuron
-      alias Exmachina.Neuron.Dendrites
-      alias Exmachina.Neuron.Axon
-
-      def compute_activity(%Neuron{} = neuron) do
-        neuron
-      end
-
-      def send_forward_and_receive_errors(%Neuron{} = neuron) do
-        neuron
-      end
-
-      def send_error_backward(%Neuron{dendrites: dendrites} = neuron) do
-        %{neuron | dendrites: Dendrites.reply_with(0, dendrites)}
-      end
-
-      def adjust_weights(%Neuron{} = neuron) do
-        neuron
-      end
-
-      defoverridable [compute_activity: 1, send_forward_and_receive_errors: 1, send_error_backward: 1, adjust_weights: 1]
-    end
+    %Neuron{} = apply(type, :fire, [neuron])
   end
 end

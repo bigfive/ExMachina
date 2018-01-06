@@ -15,12 +15,19 @@ defmodule Exmachina.Neuron.Dendrites do
     %{dendrites | activity: activity}
   end
 
-  def reply_with(reply, %__MODULE__{input_activities: input_activities} = dendrites) do
-    Enum.all?(input_activities, fn {input_pid, _activity} ->
-      :ok == GenServer.reply(input_pid, reply)
-    end)
+  def reply_with(reply, %__MODULE__{} = dendrites) do
+    dendrites
+    |> with_each_input(fn input -> :ok = GenServer.reply(input, reply) end)
+
     %{dendrites | input_activities: %{}}
   end
 
   defp init_weight, do: (:rand.uniform() * 2) - 3.0
+
+  defp with_each_input(%__MODULE__{input_activities: input_activities}, function) do
+    input_activities
+    |> Map.keys()
+    |> Task.async_stream(function, max_concurrency: map_size(input_activities))
+    |> Enum.map(fn {:ok, val} -> val end)
+  end
 end

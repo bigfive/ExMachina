@@ -13,20 +13,21 @@ defmodule Exmachina.Neuron.Axon do
   end
 
   def send_and_receive(messages, %__MODULE__{} = axon) do
-    responses = messages
-      |> Task.async_stream(fn {output_pid, message} ->
+    responses = axon
+      |> with_each_output(fn (output_pid) ->
+        message = messages[output_pid]
         response = Neuron.activate(output_pid, message)
         {output_pid, response}
-      end, max_concurrency: 999)
-      |> Enum.map(fn {:ok, val} -> val end)
+      end)
       |> Enum.into(%{})
 
     %{axon | responses: responses}
   end
 
   def adjust_weights(adjustments, %__MODULE__{output_weights: output_weights} = axon) do
-    new_weights = adjustments
-      |> Enum.map(fn {output_pid, adjustment} ->
+    new_weights = axon
+      |> with_each_output(fn (output_pid) ->
+        adjustment = adjustments[output_pid]
         old_weight = output_weights[output_pid]
         new_weight = old_weight + adjustment
         {output_pid, new_weight}
@@ -37,4 +38,11 @@ defmodule Exmachina.Neuron.Axon do
   end
 
   defp init_weight, do: (:rand.uniform() * 2) - 1.0
+
+  defp with_each_output(%__MODULE__{output_weights: output_weights}, function) do
+    output_weights
+    |> Map.keys()
+    |> Task.async_stream(function, max_concurrency: map_size(output_weights))
+    |> Enum.map(fn {:ok, val} -> val end)
+  end
 end

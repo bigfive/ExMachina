@@ -64,7 +64,7 @@ defmodule Exmachina.Network do
   defp send_inputs(network, input_intensities) do
     network.input_neurons
     |> Enum.zip(input_intensities)
-    |> Task.async_stream(fn {neuron, intensity} -> Neuron.activate(neuron, intensity) end, max_concurrency: 999)
+    |> Task.async_stream(fn {neuron, intensity} -> Neuron.activate(neuron, intensity) end, max_concurrency: length(input_intensities))
     |> Stream.run()
     network
   end

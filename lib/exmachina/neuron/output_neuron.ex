@@ -1,7 +1,14 @@
 defmodule Exmachina.Neuron.OutputNeuron do
-  use Exmachina.Neuron
+  alias Exmachina.Neuron
+  alias Exmachina.Neuron.Dendrites
 
-  def compute_activity(%Neuron{dendrites: dendrites} = neuron) do
+  def fire(%Neuron{} = neuron) do
+    neuron
+    |> compute_activity()
+    |> send_error_backward()
+  end
+
+  defp compute_activity(%Neuron{dendrites: dendrites} = neuron) do
     dendrites = dendrites.input_activities
       |> Map.values()
       |> Dendrites.compute_logistic_activity(dendrites)
@@ -9,7 +16,7 @@ defmodule Exmachina.Neuron.OutputNeuron do
     %{neuron | dendrites: dendrites}
   end
 
-  def send_error_backward(%Neuron{dendrites: dendrites, target: target} = neuron) do
+  defp send_error_backward(%Neuron{dendrites: dendrites, target: target} = neuron) do
     dendrites = -(target - dendrites.activity)
       |> Kernel.*(dendrites.activity * (1 - dendrites.activity))
       |> Dendrites.reply_with(dendrites)

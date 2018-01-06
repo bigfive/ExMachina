@@ -9,6 +9,10 @@ defmodule Exmachina.Neuron.Dendrites do
     %{dendrites | input_activities: Map.put(input_activities, from, activity)}
   end
 
+  def all_inputs_received?(%__MODULE__{input_activities: input_activities, num_inputs: num_inputs}) do
+    map_size(input_activities) == num_inputs
+  end
+
   def compute_logistic_activity(inputs, %__MODULE__{bias: bias} = dendrites) do
     sum_activity = (inputs ++ [bias]) |> Enum.sum
     activity = Numerix.Special.logistic(sum_activity)

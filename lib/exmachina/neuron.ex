@@ -1,41 +1,72 @@
 defmodule Exmachina.Neuron do
   alias Exmachina.Neuron
-  alias Exmachina.Neuron.Process
   alias Exmachina.Neuron.Dendrites
   alias Exmachina.Neuron.Axon
 
-  defstruct type: nil, dendrites: nil, axon: nil, process_pid: nil, target: nil
+  use GenServer
 
-  defdelegate start_link(args),                to: Process
-  defdelegate set_target(pid, output_pid),     to: Process
-  defdelegate get_weight_for(pid, output_pid), to: Process
-  defdelegate get_last_activity(pid),          to: Process
-  defdelegate activate(pid, activity),         to: Process
+  defstruct type: nil, dendrites: nil, axon: nil, target: nil
 
-  def new(type: type, num_inputs: num_inputs, output_pids: output_pids, process_pid: process_pid) do
-    %Neuron{type: type, dendrites: Dendrites.new(num_inputs), axon: Axon.new(output_pids), process_pid: process_pid}
+  def start_link(args) do
+    GenServer.start_link(__MODULE__, args)
   end
 
-  def get(:weight, %Neuron{axon: axon}, pid) do
-    axon.output_weights[pid]
+  def get_weight_for(pid, output_pid) do
+    GenServer.call(pid, {:get_weight_for, output_pid})
   end
 
-  def get(:activity, %Neuron{dendrites: dendrites}) do
-    dendrites.activity
+  def get_last_activity(pid) do
+    GenServer.call(pid, :get_last_activity)
   end
 
-  def put(:target, %Neuron{} = neuron, target) do
-    %{neuron | target: target}
+  def set_target(pid, target) do
+    GenServer.cast(pid, {:set_target, target})
   end
 
-  def put(:activity, %Neuron{dendrites: dendrites, process_pid: process_pid} = neuron, activity, from) do
+  def activate(pid, activity) do
+    GenServer.call(pid, {:activate, activity})
+  end
+
+  def fire(pid) do
+    GenServer.cast(pid, :fire)
+  end
+
+  def init(type: type, num_inputs: num_inputs, output_pids: output_pids) do
+    neuron = %Neuron{type: type, dendrites: Dendrites.new(num_inputs), axon: Axon.new(output_pids)}
+
+    {:ok, neuron}
+  end
+
+  def handle_call({:get_weight_for, output_pid}, _from, %Neuron{axon: axon} = neuron) do
+    weight = axon.output_weights[output_pid]
+
+    {:reply, weight, neuron}
+  end
+
+  def handle_call(:get_last_activity, _from, %Neuron{dendrites: dendrites} = neuron) do
+    activity = dendrites.activity
+
+    {:reply, activity, neuron}
+  end
+
+  def handle_call({:activate, activity}, from, %Neuron{dendrites: dendrites} = neuron) do
     dendrites = Dendrites.add_input_activity(activity, from, dendrites)
-    if map_size(dendrites.input_activities) == dendrites.num_inputs, do: Process.fire(process_pid)
+    if Dendrites.all_inputs_received?(dendrites), do: Neuron.fire(self())
 
-    %{neuron | dendrites: dendrites}
+    neuron = %{neuron | dendrites: dendrites}
+
+    {:noreply, neuron}
   end
 
-  def fire(%Neuron{type: type} = neuron) do
-    %Neuron{} = apply(type, :fire, [neuron])
+  def handle_cast({:set_target, target}, %Neuron{} = neuron) do
+    neuron = %{neuron | target: target}
+
+    {:noreply, neuron}
+  end
+
+  def handle_cast(:fire, %Neuron{type: type} = neuron) do
+    %Neuron{} = neuron = apply(type, :fire, [neuron])
+
+    {:noreply, neuron}
   end
 end

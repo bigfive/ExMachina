@@ -2,13 +2,12 @@ defmodule Exmachina.Network do
   alias Exmachina.Example
   alias Exmachina.Prediction
   alias Exmachina.Neuron
-  alias Exmachina.OutputNeuron
 
   defstruct output_neurons: [], hidden_neurons: [], input_neurons: []
 
   def create_3_layer(num_inputs, num_hidden, num_outputs) do
     output_neurons = Enum.map(1..num_outputs, fn (_index) ->
-      {:ok, pid} = OutputNeuron.start_link(num_inputs: num_hidden)
+      {:ok, pid} = Neuron.start_link(num_inputs: num_hidden, output_pids: [])
       pid
     end)
 
@@ -55,7 +54,7 @@ defmodule Exmachina.Network do
     network.output_neurons
     |> Enum.zip(labels)
     |> Enum.each(fn ({output_neuron, label_value}) ->
-      OutputNeuron.set_target(output_neuron, label_value)
+      Neuron.set_target(output_neuron, label_value)
     end)
     network
   end
@@ -70,7 +69,7 @@ defmodule Exmachina.Network do
 
   defp get_outputs(network) do
     network.output_neurons
-    |> Enum.map(&OutputNeuron.get_last_activity/1)
+    |> Enum.map(&Neuron.get_last_activity/1)
   end
 
   defp output_as_prediction(outputs, labels, pixels) do

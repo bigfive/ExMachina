@@ -3,6 +3,7 @@ defmodule Exmachina.Neuron.Axon do
 
   defstruct output_weights: %{}, responses: %{}
 
+  def new([]), do: %__MODULE__{}
   def new(output_pids) do
     output_weights = output_pids
       |> Enum.map(& {&1, init_weight()})

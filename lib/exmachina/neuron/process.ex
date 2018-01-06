@@ -10,6 +10,14 @@ defmodule Exmachina.Neuron.Process do
     GenServer.call(pid, {:get_weight_for, output_pid})
   end
 
+  def set_target(pid, target) do
+    GenServer.cast(pid, {:set_target, target})
+  end
+
+  def get_last_activity(pid) do
+    GenServer.call(pid, :get_last_activity)
+  end
+
   def activate(pid, activity) do
     GenServer.call(pid, {:activate, activity})
   end
@@ -28,8 +36,20 @@ defmodule Exmachina.Neuron.Process do
     {:reply, weight, neuron}
   end
 
+  def handle_call(:get_last_activity, _from, neuron) do
+    activity = Neuron.get_activity(neuron)
+
+    {:reply, activity, neuron}
+  end
+
   def handle_call({:activate, activity}, from, neuron) do
     neuron = Neuron.record_activation(neuron, activity, from)
+
+    {:noreply, neuron}
+  end
+
+  def handle_cast({:set_target, target}, neuron) do
+    neuron = Neuron.record_new_target(neuron, target)
 
     {:noreply, neuron}
   end

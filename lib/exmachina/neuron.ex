@@ -6,18 +6,28 @@ defmodule Exmachina.Neuron do
 
   @learning_rate 3.0
 
-  defstruct dendrites: nil, axon: nil, process_pid: nil
+  defstruct dendrites: nil, axon: nil, process_pid: nil, target: nil
 
   defdelegate start_link(args),                to: Process
+  defdelegate set_target(pid, output_pid),     to: Process
   defdelegate get_weight_for(pid, output_pid), to: Process
+  defdelegate get_last_activity(pid),          to: Process
   defdelegate activate(pid, activity),         to: Process
 
   def new(num_inputs: num_inputs, output_pids: output_pids, process_pid: process_pid) do
     %Neuron{dendrites: Dendrites.new(num_inputs), axon: Axon.new(output_pids), process_pid: process_pid}
   end
 
+  def record_new_target(%Neuron{} = neuron, target) do
+    %{neuron | target: target}
+  end
+
   def get_weight_by_pid(%Neuron{axon: axon}, pid) do
-    Map.get(axon.output_weights, pid)
+    axon.output_weights[pid]
+  end
+
+  def get_activity(%Neuron{dendrites: dendrites}) do
+    dendrites.activity
   end
 
   def record_activation(%Neuron{dendrites: dendrites, process_pid: process_pid} = neuron, activity, from) do
@@ -35,6 +45,8 @@ defmodule Exmachina.Neuron do
     %{neuron | dendrites: dendrites}
   end
 
+  def send_forward_and_receive_errors(%Neuron{axon: %{output_weights: output_weights}} = neuron) when map_size(output_weights) == 0, do: neuron
+
   def send_forward_and_receive_errors(%Neuron{axon: axon, dendrites: dendrites} = neuron) do
     axon = axon.output_weights
       |> Enum.map(fn {pid, weight} -> {pid, weight * dendrites.activity} end)
@@ -42,6 +54,14 @@ defmodule Exmachina.Neuron do
       |> Axon.send_and_receive(axon)
 
     %{neuron | axon: axon}
+  end
+
+  def send_error_backward(%Neuron{dendrites: dendrites, target: target} = neuron) when not is_nil(target) do
+    dendrites = -(target - dendrites.activity)
+      |> Kernel.*(dendrites.activity * (1 - dendrites.activity))
+      |> Dendrites.reply_with(dendrites)
+
+    %{neuron | dendrites: dendrites}
   end
 
   def send_error_backward(%Neuron{axon: axon, dendrites: dendrites} = neuron) do
@@ -55,6 +75,8 @@ defmodule Exmachina.Neuron do
 
     %{neuron | dendrites: dendrites}
   end
+
+  def adjust_weights(%Neuron{axon: %{output_weights: output_weights}} = neuron) when map_size(output_weights) == 0, do: neuron
 
   def adjust_weights(%Neuron{axon: axon, dendrites: dendrites} = neuron) do
     axon = axon.responses

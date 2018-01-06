@@ -1,7 +1,5 @@
 defmodule Exmachina.LogisticNeuron do
-  alias Exmachina.Neuron
-  alias Exmachina.Neuron.Dendrites
-  alias Exmachina.Neuron.Axon
+  use Exmachina.Neuron
 
   @learning_rate 3.0
 

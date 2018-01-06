@@ -27,39 +27,37 @@ defmodule Exmachina.Neuron.Process do
   end
 
   def init(args) do
-    {:ok, Neuron.new(args ++ [process_pid: self()])}
+    neuron = Neuron.new(args ++ [process_pid: self()])
+
+    {:ok, neuron}
   end
 
   def handle_call({:get_weight_for, output_pid}, _from, %Neuron{} = neuron) do
-    weight = Neuron.get_weight_by_pid(neuron, output_pid)
+    weight = Neuron.get(:weight, neuron, output_pid)
 
     {:reply, weight, neuron}
   end
 
   def handle_call(:get_last_activity, _from, %Neuron{} = neuron) do
-    activity = Neuron.get_activity(neuron)
+    activity = Neuron.get(:activity, neuron)
 
     {:reply, activity, neuron}
   end
 
   def handle_call({:activate, activity}, from, %Neuron{} = neuron) do
-    neuron = Neuron.record_activation(neuron, activity, from)
+    neuron = Neuron.put(:activity, neuron, activity, from)
 
     {:noreply, neuron}
   end
 
   def handle_cast({:set_target, target}, %Neuron{} = neuron) do
-    neuron = Neuron.record_new_target(neuron, target)
+    neuron = Neuron.put(:target, neuron, target)
 
     {:noreply, neuron}
   end
 
-  def handle_cast(:fire, %Neuron{type: type} = neuron) do
-    neuron = neuron
-      |> (& apply(type, :compute_activity, [&1])).()
-      |> (& apply(type, :send_forward_and_receive_errors, [&1])).()
-      |> (& apply(type, :send_error_backward, [&1])).()
-      |> (& apply(type, :adjust_weights, [&1])).()
+  def handle_cast(:fire, %Neuron{} = neuron) do
+    neuron = Neuron.fire(neuron)
 
     {:noreply, neuron}
   end

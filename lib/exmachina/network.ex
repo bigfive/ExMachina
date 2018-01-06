@@ -1,9 +1,9 @@
 defmodule Exmachina.Network do
   alias Exmachina.Example
   alias Exmachina.Prediction
-  alias Exmachina.OutputNeuron
-  alias Exmachina.LogisticNeuron
   alias Exmachina.Neuron
+  alias Exmachina.Neuron.OutputNeuron
+  alias Exmachina.Neuron.LogisticNeuron
 
   defstruct output_neurons: [], hidden_neurons: [], input_neurons: []
 

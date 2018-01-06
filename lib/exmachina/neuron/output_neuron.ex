@@ -1,4 +1,4 @@
-defmodule Exmachina.OutputNeuron do
+defmodule Exmachina.Neuron.OutputNeuron do
   use Exmachina.Neuron
 
   def compute_activity(%Neuron{dendrites: dendrites} = neuron) do

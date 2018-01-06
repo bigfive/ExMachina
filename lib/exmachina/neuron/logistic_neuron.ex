@@ -1,4 +1,4 @@
-defmodule Exmachina.LogisticNeuron do
+defmodule Exmachina.Neuron.LogisticNeuron do
   use Exmachina.Neuron
 
   @learning_rate 3.0

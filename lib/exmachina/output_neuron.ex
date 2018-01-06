@@ -21,7 +21,7 @@ defmodule Exmachina.OutputNeuron do
   end
 
   def handle_call({:activate, activity}, from, %__MODULE__{dendrites: dendrites} = state) do
-    dendrites = Dendrites.add_input_activity(dendrites, activity, from)
+    dendrites = Dendrites.add_input_activity(activity, from, dendrites)
     fire_if_all_received(dendrites.input_activities, dendrites.num_inputs)
 
     {:noreply, %{state | dendrites: dendrites}}
@@ -37,8 +37,8 @@ defmodule Exmachina.OutputNeuron do
 
   def handle_cast(:fire, %__MODULE__{dendrites: dendrites, target: target} = state) do
     with(
-      dendrites <- Dendrites.compute_logistic_activity(dendrites, activity_values(dendrites.input_activities)),
-      dendrites <- Dendrites.reply_with(dendrites, error_response(target, dendrites.activity))
+      dendrites <- Dendrites.compute_logistic_activity(activity_values(dendrites.input_activities), dendrites),
+      dendrites <- Dendrites.reply_with(error_response(target, dendrites.activity), dendrites)
     ) do
       {:noreply, %{state | dendrites: dendrites}}
     end

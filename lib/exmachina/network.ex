@@ -38,7 +38,7 @@ defmodule Exmachina.Network do
     network.output_neurons
     |> Enum.map(fn (output_neuron) ->
       Enum.map(network.hidden_neurons, fn (hidden_neuron) ->
-        Exmachina.Neuron.get_weight_for(hidden_neuron, output_neuron)
+        Neuron.get_weight_for(hidden_neuron, output_neuron)
       end)
     end)
   end

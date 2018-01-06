@@ -3,22 +3,23 @@ defmodule Exmachina.Network do
   alias Exmachina.Prediction
   alias Exmachina.OutputNeuron
   alias Exmachina.LogisticNeuron
+  alias Exmachina.Neuron
 
   defstruct output_neurons: [], hidden_neurons: [], input_neurons: []
 
   def create_3_layer(num_inputs, num_hidden, num_outputs) do
     output_neurons = Enum.map(1..num_outputs, fn (_index) ->
-      {:ok, pid} = OutputNeuron.start_link(num_inputs: num_hidden, output_pids: [])
+      {:ok, pid} = Neuron.start_link(type: OutputNeuron, num_inputs: num_hidden, output_pids: [])
       pid
     end)
 
     hidden_neurons = Enum.map(1..num_hidden, fn (_index) ->
-      {:ok, pid} = LogisticNeuron.start_link(num_inputs: num_inputs, output_pids: output_neurons)
+      {:ok, pid} = Neuron.start_link(type: LogisticNeuron, num_inputs: num_inputs, output_pids: output_neurons)
       pid
     end)
 
     input_neurons = Enum.map(1..num_inputs, fn (_index) ->
-      {:ok, pid} = LogisticNeuron.start_link(num_inputs: 1, output_pids: hidden_neurons)
+      {:ok, pid} = Neuron.start_link(type: LogisticNeuron, num_inputs: 1, output_pids: hidden_neurons)
       pid
     end)
 
@@ -29,7 +30,7 @@ defmodule Exmachina.Network do
     network.hidden_neurons
     |> Enum.map(fn (hidden_neuron) ->
       Enum.map(network.input_neurons, fn (input_neuron) ->
-        LogisticNeuron.get_weight_for(input_neuron, hidden_neuron)
+        Neuron.get_weight_for(input_neuron, hidden_neuron)
       end)
     end)
   end
@@ -38,7 +39,7 @@ defmodule Exmachina.Network do
     network.output_neurons
     |> Enum.map(fn (output_neuron) ->
       Enum.map(network.hidden_neurons, fn (hidden_neuron) ->
-        LogisticNeuron.get_weight_for(hidden_neuron, output_neuron)
+        Neuron.get_weight_for(hidden_neuron, output_neuron)
       end)
     end)
   end
@@ -55,7 +56,7 @@ defmodule Exmachina.Network do
     network.output_neurons
     |> Enum.zip(labels)
     |> Enum.each(fn ({output_neuron, label_value}) ->
-      LogisticNeuron.set_target(output_neuron, label_value)
+      Neuron.set_target(output_neuron, label_value)
     end)
     network
   end
@@ -63,14 +64,14 @@ defmodule Exmachina.Network do
   defp send_inputs(network, input_intensities) do
     network.input_neurons
     |> Enum.zip(input_intensities)
-    |> Task.async_stream(fn {neuron, intensity} -> LogisticNeuron.activate(neuron, intensity) end, max_concurrency: 999)
+    |> Task.async_stream(fn {neuron, intensity} -> Neuron.activate(neuron, intensity) end, max_concurrency: 999)
     |> Stream.run()
     network
   end
 
   defp get_outputs(network) do
     network.output_neurons
-    |> Enum.map(&LogisticNeuron.get_last_activity/1)
+    |> Enum.map(&Neuron.get_last_activity/1)
   end
 
   defp output_as_prediction(outputs, labels, pixels) do

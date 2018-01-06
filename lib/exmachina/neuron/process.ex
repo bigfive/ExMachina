@@ -3,7 +3,7 @@ defmodule Exmachina.Neuron.Process do
   use GenServer
 
   def start_link(num_inputs: num_inputs, output_pids: output_pids) do
-    GenServer.start_link(__MODULE__, Neuron.new(num_inputs: num_inputs, output_pids: output_pids))
+    GenServer.start_link(__MODULE__, num_inputs: num_inputs, output_pids: output_pids)
   end
 
   def get_weight_for(pid, output_pid) do
@@ -12,6 +12,14 @@ defmodule Exmachina.Neuron.Process do
 
   def activate(pid, activity) do
     GenServer.call(pid, {:activate, activity})
+  end
+
+  def fire(pid) do
+    GenServer.cast(pid, :fire)
+  end
+
+  def init(num_inputs: num_inputs, output_pids: output_pids) do
+    {:ok, Neuron.new(num_inputs: num_inputs, output_pids: output_pids, process_pid: self())}
   end
 
   def handle_call({:get_weight_for, output_pid}, _from, neuron) do

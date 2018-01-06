@@ -4,86 +4,63 @@ defmodule Exmachina.Neuron do
   alias Exmachina.Neuron.Dendrites
   alias Exmachina.Neuron.Axon
 
-  @learning_rate 3.0
+  # @learning_rate 3.0
 
-  defstruct dendrites: nil, axon: nil, process_pid: nil, target: nil
+  defmacro __using__(_) do
+    quote do
+      # import Exmachina.Neuron
+      alias Exmachina.Neuron
+      alias Neuron.Process
+      alias Neuron.Dendrites
+      alias Neuron.Axon
 
-  defdelegate start_link(args),                to: Process
-  defdelegate set_target(pid, output_pid),     to: Process
-  defdelegate get_weight_for(pid, output_pid), to: Process
-  defdelegate get_last_activity(pid),          to: Process
-  defdelegate activate(pid, activity),         to: Process
+      # @learning_rate 3.0
 
-  def new(num_inputs: num_inputs, output_pids: output_pids, process_pid: process_pid) do
-    %Neuron{dendrites: Dendrites.new(num_inputs), axon: Axon.new(output_pids), process_pid: process_pid}
+      defstruct dendrites: nil, axon: nil, process_pid: nil, target: nil
+
+      def start_link(args), do: Process.start_link([neuron_type: __MODULE__] ++ args)
+
+      defdelegate set_target(pid, output_pid),     to: Process
+      defdelegate get_weight_for(pid, output_pid), to: Process
+      defdelegate get_last_activity(pid),          to: Process
+      defdelegate activate(pid, activity),         to: Process
+
+      def new(num_inputs: num_inputs, output_pids: output_pids, process_pid: process_pid) do
+        %__MODULE__{dendrites: Dendrites.new(num_inputs), axon: Axon.new(output_pids), process_pid: process_pid}
+      end
+
+      def record_new_target(%__MODULE__{} = neuron, target), do:          Neuron.record_new_target(neuron, target)
+      def get_weight_by_pid(%__MODULE__{} = neuron, pid), do:             Neuron.get_weight_by_pid(neuron, pid)
+      def get_activity(%__MODULE__{} = neuron), do:                       Neuron.get_activity(neuron)
+      def record_activation(%__MODULE__{} = neuron, activity, from), do:  Neuron.record_activation(neuron, activity, from)
+
+      def compute_activity(%__MODULE__{} = neuron), do:                   neuron
+      def send_forward_and_receive_errors(%__MODULE__{} = neuron), do:    neuron
+      def send_error_backward(%__MODULE__{} = neuron), do:                neuron
+      def adjust_weights(%__MODULE__{} = neuron), do:                     neuron
+
+      defoverridable [compute_activity: 1, send_forward_and_receive_errors: 1, send_error_backward: 1, adjust_weights: 1]
+    end
   end
 
-  def record_new_target(%Neuron{} = neuron, target) do
+  defdelegate activate(pid, activity), to: Process
+
+  def record_new_target(%{} = neuron, target) do
     %{neuron | target: target}
   end
 
-  def get_weight_by_pid(%Neuron{axon: axon}, pid) do
+  def get_weight_by_pid(%{axon: axon}, pid) do
     axon.output_weights[pid]
   end
 
-  def get_activity(%Neuron{dendrites: dendrites}) do
+  def get_activity(%{dendrites: dendrites}) do
     dendrites.activity
   end
 
-  def record_activation(%Neuron{dendrites: dendrites, process_pid: process_pid} = neuron, activity, from) do
+  def record_activation(%{dendrites: dendrites, process_pid: process_pid} = neuron, activity, from) do
     dendrites = Dendrites.add_input_activity(activity, from, dendrites)
     if map_size(dendrites.input_activities) == dendrites.num_inputs, do: Process.fire(process_pid)
 
     %{neuron | dendrites: dendrites}
-  end
-
-  def compute_activity(%Neuron{dendrites: dendrites} = neuron) do
-    dendrites = dendrites.input_activities
-      |> Map.values()
-      |> Dendrites.compute_logistic_activity(dendrites)
-
-    %{neuron | dendrites: dendrites}
-  end
-
-  def send_forward_and_receive_errors(%Neuron{axon: %{output_weights: output_weights}} = neuron) when map_size(output_weights) == 0, do: neuron
-
-  def send_forward_and_receive_errors(%Neuron{axon: axon, dendrites: dendrites} = neuron) do
-    axon = axon.output_weights
-      |> Enum.map(fn {pid, weight} -> {pid, weight * dendrites.activity} end)
-      |> Enum.into(%{})
-      |> Axon.send_and_receive(axon)
-
-    %{neuron | axon: axon}
-  end
-
-  def send_error_backward(%Neuron{dendrites: dendrites, target: target} = neuron) when not is_nil(target) do
-    dendrites = -(target - dendrites.activity)
-      |> Kernel.*(dendrites.activity * (1 - dendrites.activity))
-      |> Dendrites.reply_with(dendrites)
-
-    %{neuron | dendrites: dendrites}
-  end
-
-  def send_error_backward(%Neuron{axon: axon, dendrites: dendrites} = neuron) do
-    dendrites = axon.responses
-      |> Map.values
-      |> Enum.zip(Map.values(axon.output_weights))
-      |> Enum.map(fn {error, weight} -> error * weight end)
-      |> Enum.sum()
-      |> Kernel.*(dendrites.activity * (1 - dendrites.activity))
-      |> Dendrites.reply_with(dendrites)
-
-    %{neuron | dendrites: dendrites}
-  end
-
-  def adjust_weights(%Neuron{axon: %{output_weights: output_weights}} = neuron) when map_size(output_weights) == 0, do: neuron
-
-  def adjust_weights(%Neuron{axon: axon, dendrites: dendrites} = neuron) do
-    axon = axon.responses
-      |> Enum.map(fn {pid, error} -> {pid, -(error * dendrites.activity * @learning_rate)} end)
-      |> Enum.into(%{})
-      |> Axon.adjust_weights(axon)
-
-    %{neuron | axon: axon}
   end
 end

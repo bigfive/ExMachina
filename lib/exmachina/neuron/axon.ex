@@ -1,18 +1,19 @@
 defmodule Exmachina.Neuron.Axon do
+  alias Exmachina.Neuron.Axon
   alias Exmachina.Neuron
 
   defstruct output_weights: %{}, responses: %{}
 
-  def new([]), do: %__MODULE__{}
+  def new([]), do: %Axon{}
   def new(output_pids) do
     output_weights = output_pids
       |> Enum.map(& {&1, init_weight()})
       |> Enum.into(%{})
 
-    %__MODULE__{output_weights: output_weights}
+    %Axon{output_weights: output_weights}
   end
 
-  def send_and_receive(messages, %__MODULE__{} = axon) do
+  def send_and_receive(messages, %Axon{} = axon) do
     responses = axon
       |> with_each_output(fn (output_pid) ->
         message = messages[output_pid]
@@ -24,7 +25,7 @@ defmodule Exmachina.Neuron.Axon do
     %{axon | responses: responses}
   end
 
-  def adjust_weights(adjustments, %__MODULE__{output_weights: output_weights} = axon) do
+  def adjust_weights(adjustments, %Axon{output_weights: output_weights} = axon) do
     new_weights = axon
       |> with_each_output(fn (output_pid) ->
         adjustment = adjustments[output_pid]
@@ -39,7 +40,7 @@ defmodule Exmachina.Neuron.Axon do
 
   defp init_weight, do: (:rand.uniform() * 2) - 1.0
 
-  defp with_each_output(%__MODULE__{output_weights: output_weights}, function) do
+  defp with_each_output(%Axon{output_weights: output_weights}, function) do
     output_weights
     |> Map.keys()
     |> Task.async_stream(function, max_concurrency: map_size(output_weights))

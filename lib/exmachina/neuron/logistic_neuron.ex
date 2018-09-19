@@ -3,7 +3,7 @@ defmodule Exmachina.Neuron.LogisticNeuron do
   alias Exmachina.Neuron.Dendrites
   alias Exmachina.Neuron.Axon
 
-  @learning_rate 3.0
+  @learning_rate 2.0
 
   def fire(%Neuron{} = neuron) do
     neuron

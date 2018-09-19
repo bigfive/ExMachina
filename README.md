@@ -1,20 +1,30 @@
 # Exmachina
 
-## Run sheet of a neuron
+## How to use
 
-1) Wait for all inputs to send activities (remember these connections)
-1) Compute activity
-1) Compute weighted activities
-1) Send to weighted activities to outputs
-1) Wait for all output responses. (IE the dE/dz of each connected output neuron)
-1) Compute dE/dz (via dE/dy)
-1) Send dE/dz back to open connections from step 1
-1) Compute dE/dw
+Just use the mix task:
+
+```
+mix learn
+```
+
+## How does it work?
+
+### The steps a Neuron goes through
+
+1) Wait for all input neurons to send it activities (remember these connections)
+1) Compute its own activity based on received activities
+1) "weight" the activity for each outgoing connection (using a different weight per output connection)
+1) Send the weighted activities to outputs
+1) Wait for all output responses. (IE the "error" of each connected output neuron)
+1) Compute the neurons own "error" based on the error of each of the received outputs, the corresponding weight, and the last activity that was sent
+1) Send the "error" back to open connections from step 1
+1) Compute the error amount for each of the outgoing weights
 1) Update weights
 
 https://www.youtube.com/watch?v=Z8jzCvb62e8&list=PLoRl3Ht4JOcdU872GhiYWf6jwrk_SNhz9&index=13
 
-## Dodgy diagram of a neuron
+### Dodgy diagram of a neuron
 
 ```
          /

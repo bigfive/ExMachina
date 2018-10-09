@@ -105,7 +105,7 @@
         predictionElem.className = "prediction";
         pixelsElem.className = "pixels";
         detailsElem.textContent = "Predicted: " + prediction.output_number
-        detailsElem.className = (prediction.was_correct == 1 ? "details correct" : "details incorrect")
+        detailsElem.className = (prediction.was_correct ? "details correct" : "details incorrect")
 
         for (pixelIndex in prediction.pixels) {
           var pixel = prediction.pixels[pixelIndex]

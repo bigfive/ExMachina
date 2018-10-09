@@ -1,7 +1,7 @@
 defmodule Exmachina do
   alias Exmachina.Network
   alias Exmachina.Example
-  alias Exmachina.Prediction
+  alias Exmachina.StatusWriter
 
   @num_output_units 10   # 1 unit for each label: "0" through "9"
   @num_hidden_units 8    # coz.. I like the number
@@ -9,7 +9,7 @@ defmodule Exmachina do
 
   @num_times_through_examples 20
   @dump_weights_every 20
-  @print_status_every 5
+  @print_summary_every 5
 
   def learn do
     # create the network
@@ -18,67 +18,28 @@ defmodule Exmachina do
     # load the examples
     examples = Example.load_examples()
 
+    # build a status writer
+    weights_file = File.open!("lib/output/weights.js", [:write])
+    status_writer = %StatusWriter{
+      network: network,
+      weights_fn: &(IO.binwrite(weights_file,&1)),
+      summary_fn: &(IO.write("                                 \r#{&1}")),
+      weights_every: @dump_weights_every,
+      summary_every: @print_summary_every,
+    }
+
     # run through the training examples multiple times
-    for run_through_index <- 1..@num_times_through_examples do
+    for run_index <- 1..@num_times_through_examples do
       examples
       |> Enum.shuffle()
       |> Enum.with_index()
-      |> Enum.reduce([], fn ({example, example_index}, predictions) ->
-
-        # Get the prediction for this example (getting a prediction also 'learns' the example)
-        prediction = Network.get_prediction_for_example(network, example)
-
-        # Add it to the predictions accumulator
-        predictions = [prediction | predictions] |> Enum.take(200)
-
-        # sometimes dump the weights to a file
-        if rem(example_index, @dump_weights_every) == 0, do: save_status_to_file(network, predictions)
-
-        # sometimes print a status update
-        if rem(example_index, @print_status_every) == 0, do: print_status(predictions, run_through_index, example_index)
-
-        # return the accumulator
-        predictions
-
+      |> Enum.reduce(status_writer, fn ({example, example_index}, new_status_writer) ->
+        network
+        |> Network.get_prediction_and_learn_example(example)
+        |> StatusWriter.add_prediction_and_write(new_status_writer, run: run_index, example: example_index)
       end)
     end
+
     network
-  end
-
-  defp save_status_to_file(network, predictions) do
-    layer_1_json = network
-      |> Network.get_input_weights()
-      |> Poison.encode!()
-
-    layer_2_json = network
-      |> Network.get_output_weights()
-      |> Poison.encode!()
-
-    prediction_json = predictions
-      |> Enum.take(10)
-      |> Poison.encode!()
-
-    {:ok, file} = File.open("lib/output/weights.js", [:write])
-    :ok = IO.binwrite file, "
-      document.layer1Weights = #{layer_1_json};
-      document.layer2Weights = #{layer_2_json};
-      document.predictions   = #{prediction_json};
-    "
-    :ok = File.close file
-  end
-
-  defp print_status(predictions, run_through_index, example_index) do
-    number_correct = predictions
-      |> Enum.map(fn %Prediction{was_correct: correct} -> correct end)
-      |> Enum.sum()
-
-    fraction_correct = number_correct / length(predictions)
-    percent_correct = Float.round(fraction_correct * 100.0, 3)
-
-    print_over "r:#{run_through_index} e:#{example_index} (#{percent_correct}% recently correct)"
-  end
-
-  defp print_over(string) do
-    IO.write "                                 \r#{string}"
   end
 end

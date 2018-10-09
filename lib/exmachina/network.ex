@@ -44,7 +44,7 @@ defmodule Exmachina.Network do
     end)
   end
 
-  def get_prediction_for_example(network, %Example{pixels: pixel_intensities, labels: label_values}) do
+  def get_prediction_and_learn_example(network, %Example{pixels: pixel_intensities, labels: label_values}) do
     network
     |> set_labels(label_values)
     |> send_inputs(pixel_intensities)
@@ -77,10 +77,7 @@ defmodule Exmachina.Network do
   defp output_as_prediction(outputs, labels, pixels) do
     input_number  = max_index(labels)
     output_number = max_index(outputs)
-    was_correct   = case output_number do
-      ^input_number -> 1
-      _other_number -> 0
-    end
+    was_correct   = output_number == input_number
     %Prediction{input_number: input_number, output_number: output_number, was_correct: was_correct, pixels: pixels}
   end
 

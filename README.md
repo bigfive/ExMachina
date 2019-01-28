@@ -1,5 +1,11 @@
 # Exmachina
 
+A non-traditional approach to modelling a neural network.
+
+Here I use elixir to model each neuron as a seperate asynchrounous process. Neuron receive signals, compute an output, receive an error signal and updates weights, all as a completely self contained process. As opposed to the more traditional approach of updating an entire layer at once as a matrix operation.
+
+This is much slower than matrix operations performed on a GPU, but its also (I hope) much easier to understand.
+
 ## How to use
 
 Just use the mix task:
